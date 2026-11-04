@@ -1,0 +1,129 @@
+/**
+ * Experimental reconstruction of repeated short raster strokes into DXF line types.
+ * Recognizes visual rhythm, not engineering intent. HIDDEN vs DASHED is heuristic;
+ * the operator must verify and may override the result for each sheet.
+ *
+ * Inputs: paths as pixel-space polyline arrays. Output: solidPaths plus styledPaths
+ * whose endpoints cover each recognized dash train. This never uploads drawing data.
+ */
+const rad=Math.PI/180;
+function median(values){
+  const sorted=values.slice().sort((a,b)=>a-b);
+  return sorted.length?sorted[Math.floor(sorted.length/2)]:0;
+}
+function spread(values,mid){
+  if(values.length<2||!mid)return 0;
+  return median(values.map(x=>Math.abs(x-mid)))/mid;
+}
+function lineCandidate(path,index,maxStroke){
+  if(!Array.isArray(path)||path.length<2)return null;
+  const first=path[0],last=path[path.length-1];
+  if(!first?.every(Number.isFinite)||!last?.every(Number.isFinite))return null;
+  const vx=last[0]-first[0],vy=last[1]-first[1],len=Math.hypot(vx,vy);
+  if(len<5||len>maxStroke)return null;
+  // Discard bends. Curves and branching polylines must not become dashed lines.
+  let travel=0,offAxis=0;
+  const ux=vx/len,uy=vy/len;
+  for(let k=1;k<path.length;k++){
+    const p=path[k],previous=path[k-1];
+    travel+=Math.hypot(p[0]-previous[0],p[1]-previous[1]);
+    const dist=Math.abs((p[0]-first[0])*uy-(p[1]-first[1])*ux);
+    offAxis=Math.max(offAxis,dist);
+  }
+  if(offAxis>Math.max(1.8,Math.min(3.2,len*.045))||travel>len*1.09)return null;
+  let angle=Math.atan2(vy,vx);
+  if(angle<0)angle+=Math.PI;
+  if(angle>=Math.PI)angle-=Math.PI;
+  const u=[Math.cos(angle),Math.sin(angle)],n=[-u[1],u[0]];
+  const tA=first[0]*u[0]+first[1]*u[1],tB=last[0]*u[0]+last[1]*u[1];
+  const mid=[(first[0]+last[0])/2,(first[1]+last[1])/2];
+  return {index,path,len,angle,axis:u,normal:n,offset:mid[0]*n[0]+mid[1]*n[1],
+    start:Math.min(tA,tB),end:Math.max(tA,tB)};
+}
+function contiguousSeries(items,limit,minDashCount){
+  const runs=[],used=new Set();
+  const sorted=items.slice().sort((a,b)=>a.start-b.start);
+  for(let i=0;i<sorted.length;i++){
+    if(used.has(sorted[i].index))continue;
+    const series=[sorted[i]],gaps=[];
+    for(let j=i+1;j<sorted.length;j++){
+      const previous=series[series.length-1],next=sorted[j];
+      if(used.has(next.index))continue;
+      const gap=next.start-previous.end;
+      // Stop on overlapping strokes: they are likely different objects.
+      if(gap<=1.8)break;
+      const maxGap=Math.min(limit.maxGap,Math.max(12,previous.len*limit.maxRatio));
+      if(gap>maxGap)break;
+      // Prevent drifting diagonals from accidentally coalescing.
+      const midAngle=Math.abs(previous.angle-next.angle);
+      if(midAngle>limit.maxAngle||Math.abs(previous.offset-next.offset)>limit.maxOffset)break;
+      series.push(next);gaps.push(gap);
+      if(series.length>=limit.maxSeries)break;
+    }
+    if(series.length<minDashCount)continue;
+    const dashes=series.map(v=>v.len),dash=median(dashes),gap=median(gaps);
+    const dashCV=spread(dashes,dash),gapCV=spread(gaps,gap);
+    if(!Number.isFinite(gap)||gap<2.2||gap>dash*limit.maxRatio)continue;
+    if(dashCV>limit.dashSpread||gapCV>limit.gapSpread)continue;
+    const totalLength=series[series.length-1].end-series[0].start;
+    if(totalLength<45||totalLength<dash*minDashCount+gap*(minDashCount-1)*.6)continue;
+    // Very short repeated marks may be actual point symbols; require sufficient travel.
+    if(dash<7&&series.length<6)continue;
+    const maxOffset=median(series.map(v=>v.offset));
+    const u=series[0].axis,n=series[0].normal;
+    const point=t=>[u[0]*t+n[0]*maxOffset,u[1]*t+n[1]*maxOffset];
+    const points=[point(series[0].start),point(series[series.length-1].end)];
+    // HIDDEN is a shorter-dash convention, not semantic hidden-object recognition.
+    const linetype=dash<=limit.hiddenThreshold?"HIDDEN":"DASHED";
+    const confidence=Math.max(.3,Math.min(.95,.94-(dashCV*.6+gapCV*.4)));
+    const matched=series.map(x=>x.index);
+    runs.push({points,linetype,dashPx:dash,gapPx:gap,sourceSegments:matched.length,
+      confidence,sourceIndices:matched});
+    for(const id of matched)used.add(id);
+  }
+  return {runs,used};
+}
+export function recognizeLineTypes(paths,{sensitivity="balanced",enabled=true}={}){
+  if(!enabled||!paths?.length)return {
+    solidPaths:paths||[],styledPaths:[],
+    stats:{candidateCount:0,recognizedRuns:0,dashedCount:0,hiddenCount:0,segmentsConsumed:0}
+  };
+  const loose=sensitivity==="sensitive";
+  const limit={maxStroke:loose?230:150,maxGap:loose?130:85,
+    maxRatio:loose?1.5:1.12,maxAngle:(loose?3.5:2.3)*rad,
+    maxOffset:loose?4.5:3.0,dashSpread:loose?.39:.26,
+    gapSpread:loose?.43:.29,hiddenThreshold:loose?25:22,maxSeries:100};
+  const bins=new Map();let candidates=0;
+  // A narrow angular bucket + normal intercept avoids cross-connecting parallel
+  // pipes, dimensions and geometry on neighboring lines.
+  const angleStep=2.5*rad,offsetStep=3.5;
+  for(let i=0;i<paths.length;i++){
+    const c=lineCandidate(paths[i],i,limit.maxStroke);
+    if(!c)continue;
+    candidates++;
+    const angleBucket=Math.round(c.angle/angleStep);
+    const interceptBucket=Math.round(c.offset/offsetStep);
+    const key=angleBucket+":"+interceptBucket;
+    if(!bins.has(key))bins.set(key,[]);
+    bins.get(key).push(c);
+  }
+  const used=new Set(),styledPaths=[];
+  for(const items of bins.values()){
+    if(items.length<(loose?4:5))continue;
+    const recognized=contiguousSeries(items,limit,loose?4:5);
+    for(const run of recognized.runs){
+      if(run.sourceIndices.some(i=>used.has(i)))continue;
+      for(const index of run.sourceIndices)used.add(index);
+      // Export only rendered geometry and measured metrics, not the raw index list.
+      const {sourceIndices,...result}=run;styledPaths.push(result);
+    }
+  }
+  return {solidPaths:paths.filter((_,i)=>!used.has(i)),styledPaths,
+    stats:{candidateCount:candidates,recognizedRuns:styledPaths.length,
+      dashedCount:styledPaths.filter(p=>p.linetype==="DASHED").length,
+      hiddenCount:styledPaths.filter(p=>p.linetype==="HIDDEN").length,
+      segmentsConsumed:used.size}};
+}
+export function effectiveLineType(group,override="auto"){
+  return override==="DASHED"||override==="HIDDEN"?override:group.linetype;
+}
