@@ -10,6 +10,61 @@ export function otsuThreshold(rgba) {
   }
   return value;
 }
+// Local-mean adaptive threshold for faded drawings and uneven scan backgrounds.
+export function adaptiveBinarize(rgba,width,height,{radius=20,offset=10,masks=[]}={}){
+  if(rgba.length!==width*height*4)throw Error("Pixel size mismatch");
+  const grayscale=new Uint8Array(width*height),stride=width+1;
+  const integral=new Float64Array((width+1)*(height+1));
+  for(let y=0;y<height;y++){
+    let row=0;
+    for(let x=0;x<width;x++){
+      const i=(y*width+x)*4,g=Math.round(.299*rgba[i]+.587*rgba[i+1]+.114*rgba[i+2]);
+      grayscale[y*width+x]=g;row+=g;
+      integral[(y+1)*stride+x+1]=integral[y*stride+x+1]+row;
+    }
+  }
+  const pixels=new Uint8Array(width*height);let dark=0;
+  for(let y=0;y<height;y++)for(let x=0;x<width;x++){
+    const x0=Math.max(0,x-radius),y0=Math.max(0,y-radius);
+    const x1=Math.min(width,x+radius+1),y1=Math.min(height,y+radius+1);
+    const sum=integral[y1*stride+x1]-integral[y0*stride+x1]-
+      integral[y1*stride+x0]+integral[y0*stride+x0];
+    const mean=sum/((x1-x0)*(y1-y0)),p=y*width+x;
+    pixels[p]=grayscale[p]<(mean-offset)&&rgba[p*4+3]>16?1:0;
+    dark+=pixels[p];
+  }
+  if(dark>pixels.length*.62)for(let i=0;i<pixels.length;i++)pixels[i]^=1;
+  for(const box of masks){
+    const x0=Math.max(0,Math.floor(box.x0-2)),y0=Math.max(0,Math.floor(box.y0-2));
+    const x1=Math.min(width,Math.ceil(box.x1+2)),y1=Math.min(height,Math.ceil(box.y1+2));
+    for(let y=y0;y<y1;y++)pixels.fill(0,y*width+x0,y*width+x1);
+  }
+  return {pixels,threshold:"adaptive"};
+}
+export function removeSpeckles(pixels,width,height,minComponent=0){
+  if(minComponent<=1)return pixels;
+  const visited=new Uint8Array(pixels.length),stack=[];
+  const neighbors=[-width-1,-width,-width+1,-1,1,width-1,width,width+1];
+  for(let seed=0;seed<pixels.length;seed++){
+    if(!pixels[seed]||visited[seed])continue;
+    visited[seed]=1;stack.length=0;stack.push(seed);
+    const component=[];
+    while(stack.length){
+      const index=stack.pop(),x=index%width,y=Math.floor(index/width);
+      component.push(index);
+      for(let d=0;d<8;d++){
+        const nx=x+((d%3)-1),ny=y+Math.floor(d/3)-1;
+        // Use explicit offsets so all eight Moore neighbors are visited.
+        if(nx<0||ny<0||nx>=width||ny>=height)continue;
+        const ni=ny*width+nx;
+        if(ni===index||!pixels[ni]||visited[ni])continue;
+        visited[ni]=1;stack.push(ni);
+      }
+    }
+    if(component.length<minComponent)for(const index of component)pixels[index]=0;
+  }
+  return pixels;
+}
 export function binarize(rgba,width,height,threshold=null,masks=[]) {
   if(rgba.length!==width*height*4)throw Error("Pixel size mismatch");
   const t=threshold==null?Math.min(230,otsuThreshold(rgba)+10):+threshold;
@@ -106,8 +161,9 @@ export function traceSkeleton(p,width,height,{minLength=17,epsilon=1.6,maxPaths=
   }
   return {paths,truncated};
 }
-export function vectorize({rgba,width,height,threshold=null,minLength=17,epsilon=1.6,masks=[],maxPaths=12000}){
-  const input=binarize(rgba,width,height,threshold,masks);
+export function vectorize({rgba,width,height,threshold=null,minLength=17,epsilon=1.6,masks=[],maxPaths=12000,minComponent=0}){
+  const input=threshold==="adaptive"?adaptiveBinarize(rgba,width,height,{masks}):binarize(rgba,width,height,threshold,masks);
+  removeSpeckles(input.pixels,width,height,minComponent);
   const result=thinZhangSuen(input.pixels,width,height);
   const traced=traceSkeleton(result.pixels,width,height,{minLength,epsilon,maxPaths});
   return {paths:traced.paths,truncated:traced.truncated,usedThreshold:input.threshold,
