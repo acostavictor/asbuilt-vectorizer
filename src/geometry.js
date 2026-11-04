@@ -44,7 +44,7 @@ export function adaptiveBinarize(rgba,width,height,{radius=20,offset=10,masks=[]
 export function removeSpeckles(pixels,width,height,minComponent=0){
   if(minComponent<=1)return pixels;
   const visited=new Uint8Array(pixels.length),stack=[];
-  const neighbors=[-width-1,-width,-width+1,-1,1,width-1,width,width+1];
+  const neighbors=[[-1,-1],[0,-1],[1,-1],[-1,0],[1,0],[-1,1],[0,1],[1,1]];
   for(let seed=0;seed<pixels.length;seed++){
     if(!pixels[seed]||visited[seed])continue;
     visited[seed]=1;stack.length=0;stack.push(seed);
@@ -52,9 +52,8 @@ export function removeSpeckles(pixels,width,height,minComponent=0){
     while(stack.length){
       const index=stack.pop(),x=index%width,y=Math.floor(index/width);
       component.push(index);
-      for(let d=0;d<8;d++){
-        const nx=x+((d%3)-1),ny=y+Math.floor(d/3)-1;
-        // Use explicit offsets so all eight Moore neighbors are visited.
+      for(const [dx,dy] of neighbors){
+        const nx=x+dx,ny=y+dy;
         if(nx<0||ny<0||nx>=width||ny>=height)continue;
         const ni=ny*width+nx;
         if(ni===index||!pixels[ni]||visited[ni])continue;
