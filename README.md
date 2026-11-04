@@ -37,6 +37,21 @@ The browser conversion pipeline now processes **overlapping 1024px raster tiles*
 7. Convert one sheet, review original/overlay/vectors, then calibrate with a known measurement.
 8. Confirm a **second independent dimension**. Set geometry and annotation layers, export DXF, and inspect it in AutoCAD/Civil 3D.
 
+## v0.4: Compact ribbon and native DXF linetype recognition
+
+The ribbon now uses compact 31–34px buttons, smaller tab labels, shorter groups, and less explanatory text. Drawing controls remain organized into **Home, Convert, Review & scale, Layers, Export**. The center viewport remains full-height for pan/zoom/point calibration.
+
+### Experimental dashed and hidden line workflow
+
+- **Convert → Detect dashed lines** (enabled by default) reduces the minimum raster stroke length to 8px during tracing, allowing many short broken strokes to survive the raster pass.
+- The local linetype classifier searches for at least five short, nearly collinear, regularly spaced strokes (four in the sensitive mode). It checks angle, perpendicular offset, spacing and dash-length consistency.
+- Recognized dash trains become **one reconstructed LINE entity** instead of a collection of independent short segments. The DXF now defines true \`DASHED\` and \`HIDDEN\` linetypes in its \`LTYPE\` table, using approximate dash/gap measurements converted into calibrated model-space units, and assigns linetypes using entity group code 6.
+- The **Overlay** and **Vectors only** previews draw the inferred linetype periods with distinctive colors rather than solid lines. **Drawing properties** reports inferred style counts.
+- In the **Layers** ribbon, choose *Auto (review)*, *All DASHED*, or *All HIDDEN* to override the classification for detected groups on the selected sheet. This updates the preview and DXF output without rerunning the entire raster conversion.
+- Batch ZIP \`QA-manifest.json\` now includes linetype counts, observed source-pixel patterns and stroke-reconstruction diagnostics.
+
+**Critical distinction:** Raster dashes can indicate hidden edges, utilities, overhead items, pavement marks, demolition, centerlines or graphic conventions. Their engineering *meaning* cannot be determined reliably from gaps alone. The classifier uses short-dash length as a provisional HIDDEN convention and longer strokes as DASHED. This is a **reviewable heuristic**, not semantic understanding, and it can miss, incorrectly classify or join geometry. The user must compare the result with the source sheet and make project-appropriate corrections in CAD. Dash-dot centerlines, complex break patterns, per-object manual type selection, and authoritative layer semantics are not part of v0.4.
+
 ## v0.3: Ribbon workspace and precise visual calibration
 
 The original crowded settings column has been replaced with a ribbon organized around real drawing tasks:
