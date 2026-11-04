@@ -86,7 +86,10 @@ export function applyManualHatches(paths,specs,{enabled=true}={}){
   const pattern=spec.pattern||"auto";
   if(pattern==="auto"){
    const synthetic=[...polygon,polygon[0].slice()];
-   const detected=detectHatches([synthetic,...working],{enabled:true,allowAxis:true,minStrokes:5});
+   const inside=working.filter(path=>path.length>=2&&
+     pointInPolygon(path[Math.floor(path.length/2)],polygon));
+   const outside=working.filter(path=>!inside.includes(path));
+   const detected=detectHatches([synthetic,...inside],{enabled:true,allowAxis:true,minStrokes:5});
    const matched=detected.hatches.find(h=>Math.hypot(h.boundary[0][0]-polygon[0][0],h.boundary[0][1]-polygon[0][1])<2);
    if(!matched){
     results.push({ok:false,error:"No reliable repeated hatch pattern inside this boundary. Choose Diagonal, Crosshatch, or Solid fill."});
@@ -96,7 +99,7 @@ export function applyManualHatches(paths,specs,{enabled=true}={}){
      needsReview:true,manual:true};
    hatches.push(hatch);
    // The temporary manual boundary is the first synthetic path, not original geometry.
-   working=detected.paths.filter(path=>path!==synthetic);
+   working=[...outside,...detected.paths.filter(path=>path!==synthetic)];
    results.push({ok:true,removed:matched.sourceStrokeCount||0,pattern:"auto"});
    continue;
   }
