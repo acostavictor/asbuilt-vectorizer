@@ -1,5 +1,7 @@
 import {buildDxf,filenameBase} from "./dxf.js";
 import {recognizeLineTypes,effectiveLineType} from "./linetype.js";
+import {straightenPaths} from "./straightening.js";
+import {detectHatches} from "./hatch.js";
 import {createDrawingViewport} from "./viewport.js";
 import {planTiles,normalizeRoi,clipToTileAndRoi,isEditorWatermark,looksLikeEditorUrl,overlaps,dedupeText} from "./tile-engine.js";
 
@@ -56,9 +58,9 @@ async function ensurePdf(){
   return state.pdfjs;
 }
 function blankSheet(file,name,type,extra={}){
-  return {file,name,type,status:"pending",paths:[],styledPaths:[],patternStats:null,lineTypeOverride:"auto",texts:[],width:0,height:0,
+  return {file,name,type,status:"pending",paths:[],hatches:[],hatchStats:null,straightStats:null,styledPaths:[],patternStats:null,lineTypeOverride:"auto",texts:[],width:0,height:0,
     scale:1,calibrated:false,units:"unitless",roi:null,processingDpi:null,tilesProcessed:0,watermarkDetected:false,geometryLayer:presets[$("preset").value][0],
-    textLayer:presets[$("preset").value][1],warning:"",...extra};
+    textLayer:presets[$("preset").value][1],hatchLayer:"HATCH-REVIEW",warning:"",...extra};
 }
 async function ingest(files){
   if(state.busy)return;
@@ -290,14 +292,23 @@ async function convertSheet(i){
       // Yield so the UI can repaint and browser controls remain responsive.
       await new Promise(resolve=>setTimeout(resolve,0));
     }
-    // Infer repeated line/dash patterns from global pixel coordinates.
-    // This identifies visual patterns only, not whether a line is truly hidden.
+    // Flatten scan wobble only if a best-fit straight line meets the deviation
+    // budget. Preserve curved / stepped geometry exactly as traced.
+    status("Straightening clean linear geometry on "+s.name+"...");
+    const corrected=$("straightenLines").checked?straightenPaths(paths,{
+      maxDeviation:2.5,maxRelativeDeviation:.035,orthogonal:$("snapOrthogonal").checked
+    }):{paths,stats:{straightened:0,preserved:paths.length}};
+    // Hatch recognition comes before dashed-line recognition, so patterned
+    // sectional fill strokes do not become thousands of individual CAD lines.
+    status("Checking closed boundaries for CAD hatch patterns...");
+    const hatchResult=detectHatches(corrected.paths,{enabled:$("detectHatches").checked});
     status("Classifying continuous and dashed linework on "+s.name+"...");
-    const recognized=recognizeLineTypes(paths,{
+    const recognized=recognizeLineTypes(hatchResult.paths,{
       enabled:$("detectLinetypes").checked,sensitivity:$("lineTypeSensitivity").value
     });
     s.paths=recognized.solidPaths;s.styledPaths=recognized.styledPaths;
-    s.patternStats=recognized.stats;
+    s.patternStats=recognized.stats;s.hatches=hatchResult.hatches;
+    s.hatchStats=hatchResult.stats;s.straightStats=corrected.stats;
     s.texts=dedupeText(texts);s.width=source.width;s.height=source.height;
     if(previousWidth>0&&s.calibrated)s.scale*=previousWidth/source.width;
     s.watermarkDetected=source.watermarkDetected;s.processingDpi=s.type==="pdf"?dpi:null;
@@ -315,6 +326,7 @@ function applySheetSettings(){
   const sheet=state.sheets[state.selected];if(!sheet)return;
   $("scale").value=sheet.scale;$("units").value=sheet.units;
   $("geometryLayer").value=sheet.geometryLayer;$("textLayer").value=sheet.textLayer;
+  $("hatchLayer").value=sheet.hatchLayer;
   $("lineTypeOverride").value=sheet.lineTypeOverride||"auto";
 }
 async function selectSheet(i,force=false){
@@ -343,6 +355,12 @@ function updateStats(){
     (s.processingDpi?" · "+s.processingDpi+" DPI":"")+
     (s.styledPaths?.length?" · "+s.styledPaths.length+" reconstructed dash runs":"")+
     (s.warning?" · "+s.warning:"");
+  $("geometryStats").textContent=s.status==="done"?
+    ((s.straightStats?.straightened||0)+" lines straightened · "+
+     (s.hatches?.length||0)+" native hatches · "+
+     (s.hatchStats?.removedStrokes||0)+" hatch strokes replaced"+
+     (s.hatchStats?.skippedNoBoundary?" · no closed hatch boundaries found":"")):
+    "Convert a drawing to review straightening and hatch recognition.";
   const styleCounts={DASHED:0,HIDDEN:0};
   for(const item of s.styledPaths||[])styleCounts[effectiveLineType(item,s.lineTypeOverride)]++;
   $("linetypeStats").textContent=s.status==="done"?
@@ -370,6 +388,35 @@ function drawVectors(){
   const vectorOnly=state.view==="vector";
   ctx.save();
   ctx.scale(sx,sy);ctx.lineCap="round";ctx.lineJoin="round";
+  // The preview renders the exact boundary, angle and spacing that become DXF
+  // HATCH objects. It does not display raw strokes consumed by an accepted hatch.
+  for(const hatch of sheet.hatches||[]){
+    const boundary=hatch.boundary;
+    if(!boundary?.length||!Number.isFinite(hatch.spacingPx)||hatch.spacingPx<=0)continue;
+    const angle=(hatch.angleDegrees||0)*Math.PI/180,u=[Math.cos(angle),Math.sin(angle)];
+    const n=[-u[1],u[0]],o=hatch.origin||boundary[0],relative=boundary.map(p=>[p[0]-o[0],p[1]-o[1]]);
+    const along=relative.map(p=>p[0]*u[0]+p[1]*u[1]);
+    const normal=relative.map(p=>p[0]*n[0]+p[1]*n[1]);
+    const lo=Math.min(...along)-6,hi=Math.max(...along)+6;
+    const from=Math.floor(Math.min(...normal)/hatch.spacingPx)-1;
+    const to=Math.ceil(Math.max(...normal)/hatch.spacingPx)+1;
+    ctx.save();ctx.beginPath();ctx.moveTo(boundary[0][0],boundary[0][1]);
+    for(let i=1;i<boundary.length;i++)ctx.lineTo(boundary[i][0],boundary[i][1]);
+    ctx.closePath();ctx.clip();
+    ctx.strokeStyle=vectorOnly?"#34c4ab":"#188f84";ctx.lineWidth=1.1/sx;
+    for(let i=from;i<=to&&i<from+1500;i++){
+      const offset=i*hatch.spacingPx;
+      ctx.beginPath();
+      ctx.moveTo(o[0]+u[0]*lo+n[0]*offset,o[1]+u[1]*lo+n[1]*offset);
+      ctx.lineTo(o[0]+u[0]*hi+n[0]*offset,o[1]+u[1]*hi+n[1]*offset);
+      ctx.stroke();
+    }
+    ctx.restore();
+    ctx.save();ctx.strokeStyle="#ffbb51";ctx.lineWidth=1.5/sx;
+    ctx.beginPath();ctx.moveTo(boundary[0][0],boundary[0][1]);
+    for(let i=1;i<boundary.length;i++)ctx.lineTo(boundary[i][0],boundary[i][1]);
+    ctx.closePath();ctx.stroke();ctx.restore();
+  }
   // Same centerline path data passed to buildDxf(), not a synthetic preview.
   ctx.strokeStyle=vectorOnly?"#5fe8dc":"#105cdd";
   ctx.lineWidth=1.2/sx;
@@ -445,7 +492,8 @@ function setView(view){
 }
 function makeDxf(s){
   if(s.status!=="done")throw Error("Sheet must be converted first");
-  return buildDxf({width:s.width,height:s.height,paths:s.paths,styledPaths:s.styledPaths||[],
+  return buildDxf({width:s.width,height:s.height,paths:s.paths,
+    hatches:s.hatches||[],hatchLayer:s.hatchLayer||"HATCH-REVIEW",styledPaths:s.styledPaths||[],
     lineTypeOverride:s.lineTypeOverride||"auto",texts:s.texts,
     unitsPerPixel:s.scale,units:s.units,geometryLayer:s.geometryLayer,textLayer:s.textLayer});
 }
@@ -476,6 +524,8 @@ async function exportZip(){
         pageRelativeCoordinates:true,processingDpi:s.processingDpi,tilesProcessed:s.tilesProcessed,
         linetypes:output.lineTypeCounts,linetypePatterns:output.linePatterns,
         patternRecognition:s.patternStats||null,linetypeOverride:s.lineTypeOverride,
+        hatches:output.hatchCount,hatchLayer:output.hatchLayer,
+        hatchRecognition:s.hatchStats||null,straightening:s.straightStats||null,
         drawingArea:s.roi,watermarkDetected:s.watermarkDetected,
         warning:s.warning||"Manual QA required"});
     }
@@ -534,13 +584,14 @@ $("preset").addEventListener("change",()=>{
 });
 syncValue("geometryLayer","geometryLayer",v=>!!v.trim());
 syncValue("textLayer","textLayer",v=>!!v.trim());
+syncValue("hatchLayer","hatchLayer",v=>!!v.trim());
 $("lineTypeOverride").addEventListener("change",()=>{
   const sheet=state.sheets[state.selected];if(!sheet)return;
   sheet.lineTypeOverride=$("lineTypeOverride").value;
   updateStats();drawVectors();
   status("Line style override set to "+sheet.lineTypeOverride+". Review the DXF preview before export.");
 });
-for(const id of ["detectLinetypes","lineTypeSensitivity"]){
+for(const id of ["detectLinetypes","lineTypeSensitivity","straightenLines","snapOrthogonal","detectHatches"]){
   $(id).addEventListener("change",()=>{
     if(state.sheets[state.selected]?.status==="done")status("Line detection setting changed. Convert the selected sheet again to apply.");
   });
@@ -559,7 +610,8 @@ $("calibrate").addEventListener("click",()=>{
 });
 function invalidateConversion(s){
   if(s.status==="done"||s.status==="error"){
-    s.status="pending";s.paths=[];s.styledPaths=[];s.patternStats=null;s.texts=[];
+    s.status="pending";s.paths=[];s.hatches=[];s.hatchStats=null;s.straightStats=null;
+    s.styledPaths=[];s.patternStats=null;s.texts=[];
     s.warning="Drawing area changed; reconvert this sheet.";
     s.tilesProcessed=0;s.processingDpi=null;updateList();
   }
