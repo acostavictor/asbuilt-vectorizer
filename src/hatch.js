@@ -80,13 +80,14 @@ function isDiagonal(angle,allowAxis){
   const mod=Math.abs(Math.sin(angle)*Math.cos(angle));
   return mod>.19; // excludes near horizontal/vertical dimension and grid lines
 }
-export function detectHatches(paths,{enabled=true,allowAxis=false,minStrokes=7,maxBoundaries=600}={}){
+export function detectHatches(paths,{enabled=true,allowAxis=false,minStrokes=7,maxBoundaries=600,excludedRegions=[]}={}){
   const stats={closedBoundaries:0,candidateStrokes:0,accepted:0,removedStrokes:0,
     skippedNoBoundary:false};
   if(!enabled||!paths?.length)return {paths:paths||[],hatches:[],stats};
   const closed=[];
   for(let i=0;i<paths.length&&closed.length<maxBoundaries;i++){
     if(isClosedBoundary(paths[i])){
+      if(excludedRegions.some(poly=>Array.isArray(poly)&&poly.length>=3&&pointInPolygon(paths[i][0],poly)))continue;
       const points=paths[i].slice(0,-1);
       closed.push({index:i,points,area:polygonArea(points),box:bbox(points)});
     }
