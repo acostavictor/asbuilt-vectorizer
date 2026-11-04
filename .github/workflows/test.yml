@@ -16,6 +16,7 @@ jobs:
           node --check src/app.js
           node --check src/geometry.js
           node --check src/tile-engine.js
+          node --check src/viewport.js
           node --check src/dxf.js
           node --check src/vector-worker.js
       - name: Test local conversion core
