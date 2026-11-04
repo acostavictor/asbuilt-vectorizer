@@ -422,35 +422,55 @@ function drawVectors(){
   const vectorOnly=state.view==="vector";
   ctx.save();
   ctx.scale(sx,sy);ctx.lineCap="round";ctx.lineJoin="round";
-  // The preview renders the exact boundary, angle and spacing that become DXF
-  // HATCH objects. It does not display raw strokes consumed by an accepted hatch.
+  // Same polygon(s), angles, spacing and circle fits as the DXF writer.
   for(const hatch of sheet.hatches||[]){
     const boundary=hatch.boundary;
-    if(!boundary?.length||!Number.isFinite(hatch.spacingPx)||hatch.spacingPx<=0)continue;
-    const angle=(hatch.angleDegrees||0)*Math.PI/180,u=[Math.cos(angle),Math.sin(angle)];
-    const n=[-u[1],u[0]],o=hatch.origin||boundary[0],relative=boundary.map(p=>[p[0]-o[0],p[1]-o[1]]);
-    const along=relative.map(p=>p[0]*u[0]+p[1]*u[1]);
-    const normal=relative.map(p=>p[0]*n[0]+p[1]*n[1]);
-    const lo=Math.min(...along)-6,hi=Math.max(...along)+6;
-    const from=Math.floor(Math.min(...normal)/hatch.spacingPx)-1;
-    const to=Math.ceil(Math.max(...normal)/hatch.spacingPx)+1;
-    ctx.save();ctx.beginPath();ctx.moveTo(boundary[0][0],boundary[0][1]);
+    if(!boundary?.length)continue;
+    ctx.save();
+    ctx.beginPath();ctx.moveTo(boundary[0][0],boundary[0][1]);
     for(let i=1;i<boundary.length;i++)ctx.lineTo(boundary[i][0],boundary[i][1]);
-    ctx.closePath();ctx.clip();
-    ctx.strokeStyle=vectorOnly?"#34c4ab":"#188f84";ctx.lineWidth=1.1/sx;
-    for(let i=from;i<=to&&i<from+1500;i++){
-      const offset=i*hatch.spacingPx;
-      ctx.beginPath();
-      ctx.moveTo(o[0]+u[0]*lo+n[0]*offset,o[1]+u[1]*lo+n[1]*offset);
-      ctx.lineTo(o[0]+u[0]*hi+n[0]*offset,o[1]+u[1]*hi+n[1]*offset);
-      ctx.stroke();
+    ctx.closePath();
+    if(hatch.solid){
+      ctx.fillStyle=vectorOnly?"#168e93":"rgba(29,163,160,0.30)";
+      ctx.fill();
+    }else{
+      ctx.clip();
+      const patterns=Array.isArray(hatch.patterns)&&hatch.patterns.length?
+        hatch.patterns:[{angleDegrees:hatch.angleDegrees,spacingPx:hatch.spacingPx,
+          origin:hatch.origin||boundary[0]}];
+      ctx.strokeStyle=vectorOnly?"#34c4ab":"#188f84";ctx.lineWidth=1.1/sx;
+      for(const pattern of patterns){
+        if(!Number.isFinite(pattern.spacingPx)||pattern.spacingPx<=0)continue;
+        const angle=pattern.angleDegrees*Math.PI/180,u=[Math.cos(angle),Math.sin(angle)];
+        const n=[-u[1],u[0]],o=pattern.origin||boundary[0];
+        const rel=boundary.map(p=>[p[0]-o[0],p[1]-o[1]]);
+        const along=rel.map(p=>p[0]*u[0]+p[1]*u[1]);
+        const normal=rel.map(p=>p[0]*n[0]+p[1]*n[1]);
+        const lo=Math.min(...along)-6,hi=Math.max(...along)+6;
+        const from=Math.floor(Math.min(...normal)/pattern.spacingPx)-1;
+        const to=Math.ceil(Math.max(...normal)/pattern.spacingPx)+1;
+        for(let k=from;k<=to&&k<from+1500;k++){
+          const offset=k*pattern.spacingPx;
+          ctx.beginPath();
+          ctx.moveTo(o[0]+u[0]*lo+n[0]*offset,o[1]+u[1]*lo+n[1]*offset);
+          ctx.lineTo(o[0]+u[0]*hi+n[0]*offset,o[1]+u[1]*hi+n[1]*offset);
+          ctx.stroke();
+        }
+      }
     }
     ctx.restore();
-    ctx.save();ctx.strokeStyle="#ffbb51";ctx.lineWidth=1.5/sx;
+    ctx.save();ctx.strokeStyle=hatch.manual?"#ffbd5b":"#23a68c";ctx.lineWidth=1.5/sx;
     ctx.beginPath();ctx.moveTo(boundary[0][0],boundary[0][1]);
     for(let i=1;i<boundary.length;i++)ctx.lineTo(boundary[i][0],boundary[i][1]);
     ctx.closePath();ctx.stroke();ctx.restore();
   }
+  ctx.save();ctx.strokeStyle=vectorOnly?"#86f2fb":"#0957d2";ctx.lineWidth=1.4/sx;
+  for(const circle of sheet.circles||[]){
+    if(!Number.isFinite(circle.radius)||circle.radius<=0)continue;
+    ctx.beginPath();ctx.arc(circle.center[0],circle.center[1],circle.radius,0,Math.PI*2);
+    ctx.stroke();
+  }
+  ctx.restore();
   // Same centerline path data passed to buildDxf(), not a synthetic preview.
   ctx.strokeStyle=vectorOnly?"#5fe8dc":"#105cdd";
   ctx.lineWidth=1.2/sx;
@@ -503,6 +523,14 @@ function drawVectors(){
     ctx.beginPath();ctx.moveTo(x-11,y);ctx.lineTo(x+11,y);ctx.moveTo(x,y-11);ctx.lineTo(x,y+11);ctx.stroke();
     ctx.font="bold 13px Arial";ctx.fillStyle="#ffdc87";ctx.fillText(String(number),x+11,y-10);ctx.restore();
   };
+  if(state.hatchEditing?.points?.length&&sheet.width&&sheet.height){
+    const pts=state.hatchEditing.points;
+    ctx.save();ctx.strokeStyle="#ffb24a";ctx.lineWidth=2;ctx.setLineDash([6,4]);
+    ctx.beginPath();ctx.moveTo(pts[0][0]*sx,pts[0][1]*sy);
+    for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i][0]*sx,pts[i][1]*sy);
+    ctx.stroke();ctx.restore();
+    for(let i=0;i<pts.length;i++)marker(pts[i][0]/sheet.width,pts[i][1]/sheet.height,i+1);
+  }
   if(state.cropping?.points?.length)for(let i=0;i<state.cropping.points.length;i++){
     const [nx,ny]=state.cropping.points[i];marker(nx,ny,i+1);
   }
