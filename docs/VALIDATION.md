@@ -52,3 +52,19 @@ True DWG export, survey georeferencing, CAD curves and Civil 3D intelligent obje
 - Open resulting DXF in AutoCAD/Civil 3D and verify HATCH editing, appearance after REGEN, units and pattern scale.
 - Confirm no unwanted hatch conversion of grids, dimensions, centerlines, rebar, hatching from title blocks or engineering details.
 - Complex materials (concrete, aggregate, earth, crosshatch) require future multi-pattern classification and manual boundary QA.
+
+
+## v0.6 circles and hatch repair QA
+
+- Test full circular features with scan wobble: DXF should contain one \`CIRCLE\` entity (center group 10/20, radius group 40), **not** dozens of LINE objects.
+- Test two or more arcs that, together, cover almost the entire same circle. Fragment merging should be strict, and a partial arc must remain open geometry.
+- Test squares, ellipses, stepped rounded walls, text-like loops and concentric circular details. Ensure unrelated geometry is not falsely merged.
+- Compare center and radius against two independent measurements in the original drawing.
+- Test tiny gaps in an otherwise closed section boundary and unrelated U-shaped open geometry. Do not close the U.
+- Draw manual hatch boundaries using zoom/pan and confirm editable one-loop HATCH entities in AutoCAD/Civil 3D.
+- Test SOLID (group 70 = 1), single-angle and two-angle CROSSHATCH (group 78 = 2).
+- Verify \`Replace matched source strokes\` only removes within the chosen polygon and only along the selected hatch pattern bearings.
+- Verify automatic HATCH extraction does not produce duplicates inside an operator-defined hatch polygon.
+- Check Undo point, Finish hatch, Undo hatch, Cancel, changing sheets and reconversion.
+- Confirm batch QA manifest includes circle counts, circle reconstruction statistics, manual repair details and hatch-pattern counts.
+- Validate one 150-DPI and one 240-DPI scan in Civil 3D. This app cannot guarantee production-level recognition accuracy.
