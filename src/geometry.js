@@ -106,10 +106,10 @@ export function traceSkeleton(p,width,height,{minLength=17,epsilon=1.6,maxPaths=
   }
   return {paths,truncated};
 }
-export function vectorize({rgba,width,height,threshold=null,minLength=17,epsilon=1.6,masks=[]}){
+export function vectorize({rgba,width,height,threshold=null,minLength=17,epsilon=1.6,masks=[],maxPaths=12000}){
   const input=binarize(rgba,width,height,threshold,masks);
   const result=thinZhangSuen(input.pixels,width,height);
-  const traced=traceSkeleton(result.pixels,width,height,{minLength,epsilon});
+  const traced=traceSkeleton(result.pixels,width,height,{minLength,epsilon,maxPaths});
   return {paths:traced.paths,truncated:traced.truncated,usedThreshold:input.threshold,
     thinningIterations:result.iterations,thinningConverged:result.converged};
 }
