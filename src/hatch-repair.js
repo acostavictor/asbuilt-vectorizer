@@ -89,7 +89,7 @@ export function applyManualHatches(paths,specs,{enabled=true}={}){
    const inside=working.filter(path=>path.length>=2&&
      pointInPolygon(path[Math.floor(path.length/2)],polygon));
    const outside=working.filter(path=>!inside.includes(path));
-   const detected=detectHatches([synthetic,...inside],{enabled:true,allowAxis:true,minStrokes:5});
+   const detected=detectHatches([synthetic,...inside],{enabled:true,allowAxis:true,minStrokes:5,onlyBoundaryIndex:0});
    const matched=detected.hatches.find(h=>Math.hypot(h.boundary[0][0]-polygon[0][0],h.boundary[0][1]-polygon[0][1])<2);
    if(!matched){
     results.push({ok:false,error:"No reliable repeated hatch pattern inside this boundary. Choose Diagonal, Crosshatch, or Solid fill."});
