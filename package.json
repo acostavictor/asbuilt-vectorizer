@@ -1,6 +1,6 @@
 {
   "name": "asbuilt-vectorizer",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "type": "module",
   "description": "Client-side scanned PDF to DXF converter with CAD linetype recognition prototype",
