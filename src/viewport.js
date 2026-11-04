@@ -67,6 +67,7 @@ export function createDrawingViewport({wrapper,stage,readout,crosshair,hint,onPi
     return [e.clientX-b.left,e.clientY-b.top];
   }
   function pointerDown(e){
+    if(e.target.closest?.("button, input, select, .floating-tools"))return;
     if(stage.hidden||!state.width)return;
     if(e.button!==0&&e.button!==1)return;
     const xy=relative(e);
