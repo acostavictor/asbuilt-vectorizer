@@ -342,13 +342,14 @@ function drawVectors(){
   if(!s||!canvas.width)return;
   const ctx=canvas.getContext("2d");ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.save();
+  const previewScale=s.width>0&&s.height>0?canvas.width/s.width:1;
   if(s.width>0&&s.height>0)ctx.scale(canvas.width/s.width,canvas.height/s.height);
-  ctx.strokeStyle="#1261ed";ctx.lineWidth=1.5;ctx.lineJoin="round";
+  ctx.strokeStyle="#1261ed";ctx.lineWidth=1.5/previewScale;ctx.lineJoin="round";
   for(const path of s.paths){
     if(path.length<2)continue;ctx.beginPath();ctx.moveTo(path[0][0],path[0][1]);
     for(let j=1;j<path.length;j++)ctx.lineTo(path[j][0],path[j][1]);ctx.stroke();
   }
-  ctx.strokeStyle="#00a88f";ctx.lineWidth=1;
+  ctx.strokeStyle="#00a88f";ctx.lineWidth=1/previewScale;
   for(const item of s.texts){
     if(item.bbox){const b=item.bbox;ctx.strokeRect(b.x0,b.y0,b.x1-b.x0,b.y1-b.y0);}
   }
@@ -479,6 +480,7 @@ function invalidateConversion(s){
 $("crop").addEventListener("click",()=>{
   const s=state.sheets[state.selected];if(!s)return;
   state.calibration=null;state.cropping={points:[]};
+  setView("overlay");
   $("calibrate").textContent="Select 2 points";$("crop").textContent="Click first corner";
   $("canvaswrap").classList.add("calibrating");
   status("Select two opposite corners of the engineering drawing in the preview.");
