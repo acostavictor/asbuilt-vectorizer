@@ -11,3 +11,8 @@ button,input,select{font:inherit}button{cursor:pointer}button:disabled{opacity:.
 .bottom-status{min-height:31px;background:var(--navy);color:#a9c5d4;display:flex;align-items:center;justify-content:space-between;font:10px 'IBM Plex Mono',monospace;padding:0 17px;gap:15px;overflow:hidden}.bottom-status span{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}.bottom-status .local{color:#6ae0c5}
 @media(max-width:1080px){.inspector{width:236px;min-width:236px}.ribbon-group{padding:0 12px}.header-pill{display:none}.app-header{padding:0 15px}}@media(max-width:800px){.inspector{display:none}.ribbon-pane{padding:10px;min-height:100px}.ribbon-tabs{padding-left:6px;overflow-x:auto}.ribbon-tab{min-width:70px;padding:0 10px}.app-top-status{display:none}.ribbon-end{display:none}.sheetbar{min-height:70px}.drawing-topbar{padding:0 9px}.floating-tools{right:8px;top:9px}.viewport-hint{left:8px;bottom:10px}}@media(max-width:520px){.brand-title{font-size:13px}.brand-sub{font-size:9px}.identity{min-width:0}.header-version{display:none}.ribbon-pane{min-height:95px}.ribbon-group{padding:0 8px}.ribbon-button.large{min-width:80px}.floating-tools{gap:0}.zoom-readout{width:40px}.drawing-name{font-size:11px}.drawing-name small{display:none}.segmented button{padding:6px 8px}.sheetbar-header{height:30px}.sheet{min-width:125px}.viewport-hint{max-width:90vw}.bottom-status .local{display:none}}
 @media(prefers-reduced-motion:reduce){.progress i{transition:none}}
+
+/* Sheet strip labels retain their full name in a tooltip while staying compact. */
+.sheet .sheetname{font-size:11px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px;flex:1;min-width:45px}
+.sheet .sheetmeta{display:none}
+.sheet .chip{flex:none}
