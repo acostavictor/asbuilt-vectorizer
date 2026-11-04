@@ -13,7 +13,7 @@
   <div class="identity"><span class="logo" aria-hidden="true">AV</span>
     <div><span class="brand-title">AsBuilt Vectorizer</span><span class="brand-sub">Engineering drawing studio</span></div></div>
   <div class="app-top-status"><span class="lock"></span><p id="jobStatus" role="status" aria-live="polite">Open a PDF or scanned drawing to begin.</p></div>
-  <div class="header-actions"><span class="header-pill">Local browser processing</span><span class="header-version">Preview v0.3</span></div>
+  <div class="header-actions"><span class="header-pill">Local browser processing</span><span class="header-version">Preview v0.4</span></div>
 </header>
 
 <nav class="ribbon-shell" aria-label="Drawing tools">
@@ -32,8 +32,7 @@
           <svg viewBox="0 0 24 24"><path d="M12 15V3M7 8l5-5 5 5M4 15v5h16v-5"/></svg>
           Add drawings <input type="file" class="file-input" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" multiple id="files">
         </label>
-        <div class="ribbon-stack"><button id="clear" class="ribbon-button" disabled>Clear sheets</button>
-          <div class="ribbon-note">PDF, PNG, JPG<br>Up to 50 sheets per batch</div></div>
+        <button id="clear" class="ribbon-button" disabled title="Remove all selected sheets">Clear</button>
       </div><div class="ribbon-group-label">Files</div></div>
       <div class="ribbon-group"><div class="ribbon-controls"><button id="processSelected" class="ribbon-button large" disabled>
         <svg viewBox="0 0 24 24"><path d="M5 3h9l5 5v13H5zM14 3v6h5M9 13l2 2 4-4"/></svg>Convert sheet</button>
@@ -43,7 +42,7 @@
       <div class="ribbon-group"><div class="ribbon-controls">
         <button class="ribbon-button large" id="homeFit" type="button">
           <svg viewBox="0 0 24 24"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5M8 8l-5-5m13 5 5-5M8 16l-5 5m13-5 5 5"/></svg>Fit drawing</button>
-        <div class="ribbon-note">Zoom with the mouse wheel.<br>Drag to pan around the sheet.</div>
+
       </div><div class="ribbon-group-label">Navigate</div></div>
     </section>
     <section class="ribbon-pane" id="panel-convert" role="tabpanel" aria-labelledby="tab-convert">
@@ -59,11 +58,17 @@
         <label class="ribbon-select">Noise cleanup
           <select id="speckles"><option value="0" selected>Off</option><option value="3">Small</option><option value="6">Medium</option><option value="12">Strong</option></select></label>
       </div><div class="ribbon-group-label">Line detection</div></div>
+      <div class="ribbon-group"><div class="ribbon-controls">
+        <label class="ribbon-check"><input type="checkbox" id="detectLinetypes" checked>Detect dashed lines</label>
+        <label class="ribbon-select">Sensitivity
+          <select id="lineTypeSensitivity"><option value="balanced">Conservative</option><option value="sensitive">More sensitive</option></select>
+        </label>
+      </div><div class="ribbon-group-label">Linetype recognition</div></div>
       <div class="ribbon-group"><div class="ribbon-controls ribbon-stack">
         <label class="ribbon-check"><input type="checkbox" id="ocr">Recognize printed text (OCR)</label>
         <label class="ribbon-check"><input type="checkbox" id="removeWatermark" checked>Filter PDF-XChange trial overlays</label>
       </div><div class="ribbon-group-label">Text &amp; cleanup</div></div>
-      <div class="ribbon-group"><div class="ribbon-controls"><div class="ribbon-note">Conversion uses local, tiled processing.<br>Higher DPI improves thin line visibility but takes longer.</div></div><div class="ribbon-group-label">About these settings</div></div>
+      <div class="ribbon-group"><div class="ribbon-controls"><div class="ribbon-note">Short repeated strokes can become DXF DASHED or HIDDEN lines. Confirm the inferred style in review.</div></div><div class="ribbon-group-label">Recognition note</div></div>
     </section>
     <section class="ribbon-pane" id="panel-review" role="tabpanel" aria-labelledby="tab-review">
       <div class="ribbon-group"><div class="ribbon-controls">
@@ -84,8 +89,11 @@
           <select id="preset"><option value="generic">General engineering</option><option value="civil">Civil</option><option value="architecture">Architecture</option><option value="structure">Structural</option><option value="mep">MEP</option></select></label>
         <label class="ribbon-field wide">Linework layer<input id="geometryLayer" value="VEC-POLYLINES" maxlength="120"></label>
         <label class="ribbon-field wide">Text layer<input id="textLayer" value="ANNO-TEXT" maxlength="120"></label>
+        <label class="ribbon-select">Detected linetypes<select id="lineTypeOverride" title="Override the type of all detected dashed-line groups on this sheet">
+          <option value="auto">Auto (review)</option><option value="DASHED">All DASHED</option><option value="HIDDEN">All HIDDEN</option>
+        </select></label>
       </div><div class="ribbon-group-label">DXF layer assignment</div></div>
-      <div class="ribbon-group"><div class="ribbon-controls"><div class="ribbon-note" style="max-width:300px">Layer names apply to the selected sheet. The current converter does not identify walls, piping, or other engineering objects automatically.</div></div><div class="ribbon-group-label">Layer guidance</div></div>
+      <div class="ribbon-group"><div class="ribbon-controls"><div class="ribbon-note">Line styling is inferred from repeated gaps. Confirm in the preview before exporting.</div></div><div class="ribbon-group-label">Check linework</div></div>
     </section>
     <section class="ribbon-pane" id="panel-export" role="tabpanel" aria-labelledby="tab-export">
       <div class="ribbon-group"><div class="ribbon-controls">
@@ -150,6 +158,11 @@
     <div class="inspector-title">Drawing properties <button id="closeInspector" class="icon-button" type="button" aria-label="Hide properties">✕</button></div>
     <section class="inspector-section"><h3>Conversion status</h3><span class="inspector-status" id="inspectorState">No sheet</span>
       <div id="previewStats" class="inspector-stats">No sheet selected</div></section>
+    <section class="inspector-section"><h3>Detected line styles</h3>
+      <p class="inspector-stats" id="linetypeStats">Convert a drawing to analyze its line patterns.</p>
+      <div class="style-samples" aria-hidden="true"><span><i class="sample-dashed"></i>DASHED</span><span><i class="sample-hidden"></i>HIDDEN</span></div>
+      <p class="inspector-small">Pattern recognition is experimental. Verify inferred hidden-line conventions before engineering use.</p>
+    </section>
     <section class="inspector-section"><h3>Drawing scale</h3><label class="thin-field">Drawing units per pixel <input type="number" min="0.00000001" step="any" id="scale" value="1"></label>
       <p class="inspector-small" id="calibrationHint">No drawing selected. Use Review &amp; scale to pick two known-distance points.</p></section>
     <section class="inspector-section"><h3>Drawing area</h3><p class="inspector-small" id="cropHint">Entire drawing selected. Optionally choose a region in Review &amp; scale.</p></section>
