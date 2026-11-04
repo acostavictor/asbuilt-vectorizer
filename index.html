@@ -13,7 +13,7 @@
   <div class="identity"><span class="logo" aria-hidden="true">AV</span>
     <div><span class="brand-title">AsBuilt Vectorizer</span><span class="brand-sub">Engineering drawing studio</span></div></div>
   <div class="app-top-status"><span class="lock"></span><p id="jobStatus" role="status" aria-live="polite">Open a PDF or scanned drawing to begin.</p></div>
-  <div class="header-actions"><span class="header-pill">Local browser processing</span><span class="header-version">Preview v0.5</span></div>
+  <div class="header-actions"><span class="header-pill">Local browser processing</span><span class="header-version">Preview v0.6</span></div>
 </header>
 
 <nav class="ribbon-shell" aria-label="Drawing tools">
@@ -65,10 +65,12 @@
         </label>
       </div><div class="ribbon-group-label">Linetype recognition</div></div>
       <div class="ribbon-group"><div class="ribbon-controls ribbon-stack">
+        <label class="ribbon-check"><input id="recognizeCircles" type="checkbox" checked>Recognize circles as CAD CIRCLE</label>
         <label class="ribbon-check"><input id="straightenLines" type="checkbox" checked>Keep straight lines straight</label>
         <label class="ribbon-check"><input id="snapOrthogonal" type="checkbox">Snap nearly horizontal / vertical</label>
       </div><div class="ribbon-group-label">Geometry</div></div>
       <div class="ribbon-group"><div class="ribbon-controls ribbon-stack">
+        <label class="ribbon-check"><input id="repairContours" type="checkbox" checked>Close tiny boundary gaps</label>
         <label class="ribbon-check"><input id="detectHatches" type="checkbox" checked>Recognize enclosed hatches</label>
         <span class="ribbon-note">Requires a closed boundary and regular pattern</span>
       </div><div class="ribbon-group-label">Hatches</div></div>
@@ -84,6 +86,23 @@
         <label class="ribbon-field">Known distance<input type="number" min="0.00001" step="any" placeholder="e.g. 100" id="distance"></label>
         <label class="ribbon-select">Units<select id="units"><option value="unitless">Unitless</option><option value="feet">Feet</option><option value="inches">Inches</option><option value="meters">Meters</option><option value="millimeters">Millimeters</option><option value="centimeters">Centimeters</option></select></label>
       </div><div class="ribbon-group-label">Calibrate drawing scale</div></div>
+      <div class="ribbon-group"><div class="ribbon-controls ribbon-stack">
+        <button id="drawHatch" class="ribbon-button" type="button" title="Click 3 or more corners of a hatch boundary on the drawing">Draw hatch boundary</button>
+        <div class="ribbon-controls" style="min-height:0">
+          <button id="undoHatchVertex" class="ribbon-button" type="button" disabled>Undo point</button>
+          <button id="finishHatch" class="ribbon-button primary" type="button" disabled>Finish hatch</button>
+          <button id="removeLastHatch" class="ribbon-button" type="button" disabled>Undo hatch</button>
+        </div>
+      </div><div class="ribbon-group-label">Repair hatch boundary</div></div>
+      <div class="ribbon-group"><div class="ribbon-controls">
+        <label class="ribbon-select">Pattern
+          <select id="manualHatchPattern"><option value="auto">Use source pattern</option><option value="diagonal">Diagonal lines</option>
+          <option value="cross">Crosshatch</option><option value="solid">Solid fill</option></select>
+        </label>
+        <label class="ribbon-field">Angle (°)<input id="manualHatchAngle" type="number" step="1" value="45" min="-180" max="180"></label>
+        <label class="ribbon-field">Spacing (px)<input id="manualHatchSpacing" type="number" step="1" min="2" max="1000" value="12"></label>
+        <label class="ribbon-check"><input type="checkbox" id="removeHatchStrokes">Replace matched source strokes</label>
+      </div><div class="ribbon-group-label">Manual hatch style</div></div>
       <div class="ribbon-group"><div class="ribbon-controls">
         <button id="crop" class="ribbon-button large" type="button"><svg viewBox="0 0 24 24"><path d="M6 2v16a2 2 0 0 0 2 2h14M2 6h16a2 2 0 0 1 2 2v14"/></svg>Select drawing area</button>
         <button id="clearCrop" class="ribbon-button" type="button">Clear area</button>
@@ -164,7 +183,8 @@
     <section class="inspector-section"><h3>Conversion status</h3><span class="inspector-status" id="inspectorState">No sheet</span>
       <div id="previewStats" class="inspector-stats">No sheet selected</div></section>
     <section class="inspector-section"><h3>Reconstructed geometry</h3>
-      <p class="inspector-stats" id="geometryStats">Convert a drawing to review straightening and hatch recognition.</p>
+      <p class="inspector-stats" id="geometryStats">Convert a drawing to review circles, straightening and hatches.</p>
+      <p class="inspector-small" id="hatchRepairHint">For broken hatch boundaries, use Review &amp; scale → Draw hatch boundary.</p>
       <p class="inspector-small">Hatches are created only where a closed boundary and repeated, regular linework agree. Inspect exported CAD hatches before use.</p>
     </section>
     <section class="inspector-section"><h3>Detected line styles</h3>
