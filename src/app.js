@@ -310,7 +310,7 @@ function applySheetSettings(){
 async function selectSheet(i,force=false){
   if(i<0||i>=state.sheets.length)return;
   state.selected=i;state.calibration=null;state.cropping=null;
-  $("canvaswrap").classList.remove("calibrating");$("calibrate").textContent="Select 2 points";$("crop").textContent="Select drawing area";
+  $("calibrate").textContent="Pick two points";$("crop").textContent="Select drawing area";
   const s=state.sheets[i];applySheetSettings();updateList();$("previewTitle").textContent=s.name;
   viewport.setTool("pan");
   const token=++state.token;
@@ -479,6 +479,7 @@ function syncValue(id,key,validate=null){
 $("files").addEventListener("change",e=>{ingest([...e.target.files]);e.target.value="";});
 const drop=$("drop");
 drop.addEventListener("dragover",e=>{e.preventDefault();drop.classList.add("drag");});
+drop.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();$("files").click();}});
 drop.addEventListener("dragleave",()=>drop.classList.remove("drag"));
 drop.addEventListener("drop",e=>{e.preventDefault();drop.classList.remove("drag");ingest([...e.dataTransfer.files]);});
 $("processSelected").addEventListener("click",()=>processIndices([state.selected]));
