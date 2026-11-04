@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Convert PDF and image as-built drawings to editable layered DXF, locally in your browser.">
+  <meta name="description" content="Convert high-resolution scanned PDF and image as-built drawings to layered DXF locally in your browser.">
   <title>AsBuilt Vectorizer | Local PDF to DXF</title>
   <style>
     :root{color-scheme:light;--navy:#0b203a;--blue:#205fd3;--ink:#172a45;--muted:#6b7b90;--line:#dfe7f0;--bg:#f5f8fc;--card:#fff;--teal:#12a99b}
@@ -36,7 +36,7 @@
   <div class="top-actions"><span>Prototype v0.1</span><span class="private">◈ &nbsp;Files stay on your device</span></div>
 </header>
 <div class="intro">
-  <div><h1>From scanned drawings to editable CAD.</h1><p class="lead">Import up to 50 PDF/image sheets, extract centerlines and printed text, review, then export layered DXFs.</p></div>
+  <div><h1>From scanned drawings to editable CAD.</h1><p class="lead">Import up to 50 PDF/image sheets, trace high-resolution tiles, review, then export layered DXFs.</p></div>
   <div class="subtle">Local raster tracing · OCR · DXF</div>
 </div>
 <main class="workspace">
@@ -68,6 +68,21 @@
       <div class="field"><label for="scale">Drawing units / processed pixel</label><input type="number" min="0.00000001" step="any" id="scale" value="1"></div>
       <div class="grid2"><div class="field"><label for="distance">Known distance</label><input type="number" id="distance" min=".00001" step="any" placeholder="e.g. 100"></div><div class="field"><label>Choose endpoints</label><button id="calibrate" class="button full" type="button">Select 2 points</button></div></div>
       <p class="hint" id="calibrationHint">Default is uncalibrated. A known distance between two clicked points sets each sheet's scale.</p>
+    </section>
+    <div class="divider"></div>
+    <section><h2>05 &nbsp;Scan quality & drawing area</h2>
+      <div class="field"><label for="dpi">PDF processing resolution</label>
+        <select id="dpi">
+          <option value="96">Fast · 96 DPI</option>
+          <option value="150" selected>Balanced · 150 DPI</option>
+          <option value="200">Detailed · 200 DPI</option>
+          <option value="240">Highest · 240 DPI</option>
+        </select>
+      </div>
+      <p class="hint">Each sheet is processed in overlapping 1024px tiles. Higher resolution preserves finer linework but takes longer, especially with OCR.</p>
+      <label class="switch"><input type="checkbox" id="removeWatermark" checked>Filter PDF-XChange watermark regions</label>
+      <div class="buttons"><button id="crop" class="button" type="button">Select drawing area</button><button id="clearCrop" class="button" type="button">Clear area</button></div>
+      <p class="hint" id="cropHint" style="margin-top:8px">Optional: select two opposite corners on the preview to exclude unnecessary borders or title blocks.</p>
     </section>
     <div class="warning">Engineering QA required. Tracing can distort dimensions, text and curved objects. Exported drawings are not georeferenced or design-certified.</div>
   </aside>
