@@ -1,6 +1,6 @@
 /**
  * Conservative hatch detector for scanned engineering sections.
- * v0.5: finds SINGLE-ANGLE, regular, clipped line families INSIDE an already
+ * v0.6: finds one or two regular, clipped line families INSIDE an already
  * closed boundary. Does not guess missing boundaries or interpret material type.
  */
 const pi=Math.PI, rad=pi/180;
@@ -122,7 +122,7 @@ export function detectHatches(paths,{enabled=true,allowAxis=false,minStrokes=7,m
       if(!buckets.has(key))buckets.set(key,[]);
       buckets.get(key).push(s);
     }
-    let best=null;
+    const matches=[];
     for(const family of buckets.values()){
       if(family.length<minStrokes)continue;
       const angles=family.map(s=>s.angle),angle=median(angles);
@@ -140,20 +140,30 @@ export function detectHatches(paths,{enabled=true,allowAxis=false,minStrokes=7,m
       if(endpointHits/family.length<.54)continue;
       const confidence=Math.min(.98,.6+.15*rhythm.consistent+
         .13*endpointHits/family.length+.1*Math.min(1,rhythm.span/polygonSpan));
-      if(!best||family.length>best.family.length)best={family,angle,step:rhythm.step,
-        confidence,boundary};
+      matches.push({family,angle,step:rhythm.step,confidence,boundary});
     }
-    if(!best)continue;
+    if(!matches.length)continue;
+    matches.sort((a,b)=>b.family.length-a.family.length);
+    const primary=matches[0],selected=[primary];
+    // Two distinct, individually regular line families represent a crosshatch.
+    // Crosshatches split by intersections may remain unclassified and reviewable.
+    const secondary=matches.find(m=>m!==primary&&
+      Math.abs(Math.sin(m.angle-primary.angle))>=.55&&
+      !m.family.some(s=>primary.family.some(p=>p.index===s.index)));
+    if(secondary)selected.push(secondary);
+    const patterns=selected.map(m=>({angleDegrees:m.angle*180/pi,spacingPx:m.step,
+      origin:m.family[0].a.slice()}));
     const group={
       boundary:boundary.points.map(p=>[...p]),
-      angleDegrees:best.angle*180/pi,spacingPx:best.step,
-      origin:best.family[0].a.slice(),confidence:best.confidence,
-      sourceStrokeCount:best.family.length,
+      angleDegrees:patterns[0].angleDegrees,spacingPx:patterns[0].spacingPx,
+      origin:patterns[0].origin.slice(),patterns,
+      confidence:Math.min(...selected.map(m=>m.confidence)),
+      sourceStrokeCount:selected.reduce((sum,m)=>sum+m.family.length,0),
       boundaryType:"existing-closed-polyline",
-      needsReview:true,patternName:"AV_SCAN"
+      needsReview:true,patternName:selected.length>1?"AV_CROSS":"AV_SCAN"
     };
     hatches.push(group);stats.accepted++;
-    for(const s of best.family)used.add(s.index);
+    for(const m of selected)for(const s of m.family)used.add(s.index);
   }
   stats.removedStrokes=used.size;
   return {paths:paths.filter((_,i)=>!used.has(i)),hatches,stats};
