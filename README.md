@@ -37,6 +37,36 @@ The browser conversion pipeline now processes **overlapping 1024px raster tiles*
 7. Convert one sheet, review original/overlay/vectors, then calibrate with a known measurement.
 8. Confirm a **second independent dimension**. Set geometry and annotation layers, export DXF, and inspect it in AutoCAD/Civil 3D.
 
+## v0.3: Ribbon workspace and precise visual calibration
+
+The original crowded settings column has been replaced with a ribbon organized around real drawing tasks:
+
+- **Home:** import up to 50 sheets, convert selected/all, fit the drawing
+- **Convert:** DPI, threshold, smoothing, speckle filtering, OCR, watermark handling
+- **Review & scale:** two-point calibration with known distance and drawing-area selection
+- **Layers:** discipline presets and editable line/text layer names
+- **Export:** DXF per sheet or batch ZIP with QA manifest
+
+The canvas now takes most of the screen. A collapsible properties inspector and a compact sheet strip leave space for actual drawing inspection. Use **Original**, **Overlay**, or **Vectors only** views. Vector-only mode renders the same reconstructed polyline and text data that the DXF exporter uses, including OCR/embedded text when recognized. A visual preview is not engineering verification.
+
+### Drawing navigation and calibration
+
+| Gesture | Effect |
+| --- | --- |
+| Mouse wheel | Zoom toward the cursor |
+| Left drag in Pan mode | Pan drawing |
+| Space + drag | Temporary pan while picking calibration or crop points |
+| F | Fit entire sheet |
+| 1 | 100% preview pixels |
+| + / - | Zoom in / out |
+| P | Switch to Pan mode |
+| Esc | Cancel current point selection |
+| Review & scale → Pick two points | Select calibrated endpoints, even if you pan/zoom between clicks |
+
+**Calibration:** enter a known distance and choose units, then zoom in and pick two endpoints. The app computes a drawing-unit-per-source-pixel scale and automatically adjusts the scale when high-DPI processing changes from the low-resolution preview. Confirm another known distance in your CAD system before use.
+
+**Known limitations:** native DWG export, AI discipline classification, semantic engineering object reconstruction, surveyed coordinates, and subpixel snapping are not implemented. The prototype cannot guarantee that all lines and OCR are accurate, nor that paths split across tile boundaries are connected. For high-value project drawings, use the QA checklist and independent review.
+
 ## How it works
 
 ```text
