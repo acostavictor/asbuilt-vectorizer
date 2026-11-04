@@ -1,38 +1,78 @@
-// Minimal ASCII DXF R2000 writer, pixel-to-unit mapping, no DWG support.
+// Minimal ASCII DXF R2000 writer. Layered lines, polylines, text and true linetype table.
+// Native DWG is not supported. All input coordinates are page-relative raster pixels.
+import {effectiveLineType} from "./linetype.js";
 const clean=v=>String(v??"").replace(/[\r\n\x00-\x1f]/g," ").trim();
 const layerName=v=>clean(v).replace(/[<>\/\\":;?*|=,]/g,"_").slice(0,120)||"UNCLASSIFIED";
 const pair=(k,v)=>String(k)+"\n"+String(v)+"\n";
 const number=v=>Number.isFinite(+v)?String(Number((+v).toFixed(6))):"0";
 const coords=(x,y)=>pair(10,number(x))+pair(20,number(y));
+function median(values){const a=values.slice().sort((x,y)=>x-y);return a.length?a[Math.floor(a.length/2)]:0;}
 export function filenameBase(name){
   return String(name).replace(/\.[^.]+$/,"").replace(/[^a-z0-9_-]+/gi,"_").slice(0,80)||"drawing";
 }
-export function buildDxf({width,height,paths=[],texts=[],unitsPerPixel=1,geometryLayer="VEC-POLYLINES",
+function makeLinetype(name,dash,gap){
+  // DXF LTYPE pattern 49 uses positive lengths for ink and negative for spaces.
+  // The detected pixel period is converted to actual model-space units.
+  const positive=Math.max(.0001,dash),negative=Math.max(.0001,gap);
+  return pair(0,"LTYPE")+pair(2,name)+pair(70,0)+pair(3,"As-built raster pattern (verify)")+
+    pair(72,65)+pair(73,2)+pair(40,number(positive+negative))+
+    pair(49,number(positive))+pair(74,0)+pair(49,number(-negative))+pair(74,0);
+}
+export function buildDxf({width,height,paths=[],styledPaths=[],lineTypeOverride="auto",
+  texts=[],unitsPerPixel=1,geometryLayer="VEC-POLYLINES",
   textLayer="ANNO-TEXT",units="unitless",originX=0,originY=0}){
   if(!Number.isFinite(unitsPerPixel)||unitsPerPixel<=0)throw Error("Invalid calibration scale");
   const geometry=layerName(geometryLayer),annotation=layerName(textLayer);
   const names=[...new Set([geometry,annotation,"QA-REVIEW","UNCLASSIFIED"])];
   const indices={"QA-REVIEW":1,"ANNO-TEXT":2,"VEC-POLYLINES":4,"UNCLASSIFIED":7};
   const insunits={unitless:0,inches:1,feet:2,millimeters:4,centimeters:5,meters:6}[units]??0;
+  const styles={};
+  for(const item of styledPaths){
+    if(!item||!Array.isArray(item.points)||item.points.length<2)continue;
+    const type=effectiveLineType(item,lineTypeOverride);
+    if(!["HIDDEN","DASHED"].includes(type))continue;
+    if(!styles[type])styles[type]={dashes:[],gaps:[]};
+    if(Number.isFinite(item.dashPx)&&item.dashPx>0)styles[type].dashes.push(item.dashPx);
+    if(Number.isFinite(item.gapPx)&&item.gapPx>0)styles[type].gaps.push(item.gapPx);
+  }
   let d=pair(0,"SECTION")+pair(2,"HEADER")+pair(9,"$ACADVER")+pair(1,"AC1015")+
-    pair(9,"$INSUNITS")+pair(70,insunits)+pair(0,"ENDSEC")+pair(0,"SECTION")+pair(2,"TABLES")+
-    pair(0,"TABLE")+pair(2,"LTYPE")+pair(70,1)+pair(0,"LTYPE")+pair(2,"CONTINUOUS")+pair(70,0)+pair(3,"Solid line")+pair(72,65)+pair(73,0)+pair(40,0)+pair(0,"ENDTAB")+
-    pair(0,"TABLE")+pair(2,"LAYER")+pair(70,names.length);
-  for(const name of names){d+=pair(0,"LAYER")+pair(2,name)+pair(70,0)+pair(62,indices[name]??7)+pair(6,"CONTINUOUS");}
+    pair(9,"$INSUNITS")+pair(70,insunits)+pair(9,"$LTSCALE")+pair(40,1)+
+    pair(0,"ENDSEC")+pair(0,"SECTION")+pair(2,"TABLES")+
+    pair(0,"TABLE")+pair(2,"LTYPE")+pair(70,1+Object.keys(styles).length)+
+    pair(0,"LTYPE")+pair(2,"CONTINUOUS")+pair(70,0)+pair(3,"Solid line")+pair(72,65)+pair(73,0)+pair(40,0);
+  const linePatterns={};
+  for(const [type,metrics] of Object.entries(styles)){
+    // A consistent pattern per DXF linetype. Store observed periods in source-pixel units
+    // as metadata; the exported pattern is correctly expressed in CAD drawing units.
+    const dash=median(metrics.dashes)||20,gap=median(metrics.gaps)||10;
+    linePatterns[type]={dashPx:dash,gapPx:gap};
+    d+=makeLinetype(type,dash*unitsPerPixel,gap*unitsPerPixel);
+  }
+  d+=pair(0,"ENDTAB")+pair(0,"TABLE")+pair(2,"LAYER")+pair(70,names.length);
+  for(const name of names)d+=pair(0,"LAYER")+pair(2,name)+pair(70,0)+pair(62,indices[name]??7)+pair(6,"CONTINUOUS");
   d+=pair(0,"ENDTAB")+pair(0,"ENDSEC")+pair(0,"SECTION")+pair(2,"ENTITIES");
   const map=p=>[originX+p[0]*unitsPerPixel,originY+(height-p[1])*unitsPerPixel];
-  let geometryCount=0,textCount=0;
-  for(const path of paths){
-    if(!Array.isArray(path)||path.length<2)continue;
+  const counts={DASHED:0,HIDDEN:0},geometryCount={solid:0,styled:0};let textCount=0;
+  function addPath(path,linetype=null){
+    if(!Array.isArray(path)||path.length<2)return false;
     const points=path.map(map);
+    if(points.some(p=>!p.every(Number.isFinite)))return false;
+    const suffix=linetype?pair(6,linetype):"";
     if(points.length===2){
-      d+=pair(0,"LINE")+pair(8,geometry)+coords(points[0][0],points[0][1])+
+      d+=pair(0,"LINE")+pair(8,geometry)+suffix+coords(points[0][0],points[0][1])+
         pair(11,number(points[1][0]))+pair(21,number(points[1][1]));
     }else{
-      d+=pair(0,"LWPOLYLINE")+pair(8,geometry)+pair(90,points.length)+pair(70,0);
+      d+=pair(0,"LWPOLYLINE")+pair(8,geometry)+suffix+pair(90,points.length)+pair(70,0);
       for(const point of points)d+=coords(point[0],point[1]);
     }
-    geometryCount++;
+    return true;
+  }
+  for(const path of paths)if(addPath(path))geometryCount.solid++;
+  for(const item of styledPaths){
+    if(!item?.points)continue;
+    const type=effectiveLineType(item,lineTypeOverride);
+    if(!styles[type])continue;
+    if(addPath(item.points,type)){geometryCount.styled++;counts[type]++;}
   }
   for(const item of texts){
     const txt=clean(item.value).slice(0,240);if(!txt)continue;
@@ -43,5 +83,7 @@ export function buildDxf({width,height,paths=[],texts=[],unitsPerPixel=1,geometr
     textCount++;
   }
   d+=pair(0,"ENDSEC")+pair(0,"EOF");
-  return {content:d,geometryCount,textCount,layers:names,insunits};
+  return {content:d,geometryCount:geometryCount.solid+geometryCount.styled,textCount,
+    styledCount:geometryCount.styled,lineTypes:Object.keys(styles),lineTypeCounts:counts,
+    linePatterns,layers:names,insunits};
 }
