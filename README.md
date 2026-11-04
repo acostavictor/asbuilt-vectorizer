@@ -12,10 +12,33 @@ Browser-based, **client-side** PDF/image-to-layered-DXF proof of concept for eng
 - Choose geometry and text layers, calibrate the drawing scale, and preview the detected linework.
 - Export an individual DXF, or a ZIP of DXFs and a QA manifest.
 
+## v0.2: Tiled processing upgrade (November 2026)
+
+The browser conversion pipeline now processes **overlapping 1024px raster tiles**, with user-selectable PDF raster resolution (96, 150, 200 or 240 DPI). The lower-resolution full-sheet rendering is used only for the interactive preview.
+
+- **Drawing area (ROI):** pick two corners in the preview to limit tracing to the intended engineering drawing area. Changing ROI invalidates any previous conversion.
+- **PDF-XChange trial watermark:** detect distinctive trial text layers and linked overlay zones; where recognized, omit watermark text from CAD and paint detected link zones white in tile processing. This is not a general-purpose PDF watermark removal tool.
+- **OCR:** optionally run Tesseract locally on each tile, deduplicate overlap detections, and export editable DXF TEXT entities. Human correction remains necessary.
+- **Tile seams:** clip output paths to nonoverlapping tile cores so adjacent processing areas do not duplicate geometry.
+- **Improved preview:** rescale high-resolution path coordinates when drawing them over the low-resolution page preview.
+- **QA ZIP:** record DPI, tile count, optional region selection, watermark detection, calibration status and warnings.
+
+**Known constraints:** It remains a raster tracer, not semantic CAD reconstruction. OCR quality and tile-endpoint connectivity are not guaranteed. Lines touching a tile boundary can require joining in AutoCAD. Source files remain local and are never committed to GitHub. A complete 50-sheet batch at high DPI may be slow on consumer laptops. See [validation checklist](docs/VALIDATION.md).
+
+### Recommended workflow for engineering sheets
+
+1. Open the deployed app on desktop Chrome or Edge.
+2. Import one PDF sheet and choose **150 DPI** first; switch to 200 or 240 DPI for thin linework only after measuring performance.
+3. Use **Select drawing area** to exclude unnecessary title blocks and borders when they are not needed.
+4. Leave **Filter PDF-XChange watermark regions** enabled for PDFs with those overlays.
+5. Enable OCR if editable printed annotations are needed. Expect much longer processing time.
+6. Convert one sheet, review original/overlay/vectors, then calibrate with a known measurement.
+7. Confirm a **second independent dimension**. Set geometry and annotation layers, export DXF, and inspect it in AutoCAD/Civil 3D.
+
 ## How it works
 
 ```text
-User file picker → in-browser PDF.js/image rendering → local raster tracing worker
+User file picker → PDF.js tiled raster rendering → local raster tracing worker
           ↘ optional local Tesseract OCR → preview + layer/scale QC
                  → locally generated DXF / ZIP download
 ```
@@ -42,8 +65,8 @@ The repository is a static website. Publish to GitHub Pages (Settings → Pages 
 - Raster tracing is approximate and can trace letter outlines or noise; OCR may be incomplete or inaccurate.
 - It does not interpret discipline semantics, Civil 3D objects, dimensions, real-world coordinates, or engineering tolerances.
 - Native PDF vector extraction, curved raster arc detection, automatic layer inference, DWG export, rotated text, and survey control are planned features, **not** present in the initial proof of concept.
-- Each sheet requires independent calibration to establish useful engineering model units. Uncalibrated output uses one drawing unit per processed pixel.
-- Processing 50 large sheets can consume substantial browser memory and CPU; process sequentially.
+- Each sheet requires independent calibration to establish useful engineering model units. Uncalibrated output uses one drawing unit per processed pixel at the selected DPI.
+- Processing 50 large sheets can consume substantial CPU time; sheets and raster tiles process sequentially to control memory.
 - Public GitHub repositories expose application source code.
 
 ## Testing
