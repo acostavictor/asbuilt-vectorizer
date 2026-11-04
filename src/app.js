@@ -344,47 +344,73 @@ function updateStats(){
     "This sheet is not calibrated. Click two known-distance endpoints to set scale.";
 }
 function drawVectors(){
-  const s=state.sheets[state.selected],canvas=$("vectorCanvas");
-  if(!s||!canvas.width)return;
-  const ctx=canvas.getContext("2d");ctx.clearRect(0,0,canvas.width,canvas.height);
+  const sheet=state.sheets[state.selected],canvas=$("vectorCanvas");
+  if(!sheet||!canvas.width)return;
+  const ctx=canvas.getContext("2d");
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const sx=sheet.width>0?canvas.width/sheet.width:1;
+  const sy=sheet.height>0?canvas.height/sheet.height:1;
+  const vectorOnly=state.view==="vector";
   ctx.save();
-  const previewScale=s.width>0&&s.height>0?canvas.width/s.width:1;
-  if(s.width>0&&s.height>0)ctx.scale(canvas.width/s.width,canvas.height/s.height);
-  ctx.strokeStyle="#1261ed";ctx.lineWidth=1.5/previewScale;ctx.lineJoin="round";
-  for(const path of s.paths){
-    if(path.length<2)continue;ctx.beginPath();ctx.moveTo(path[0][0],path[0][1]);
-    for(let j=1;j<path.length;j++)ctx.lineTo(path[j][0],path[j][1]);ctx.stroke();
+  ctx.scale(sx,sy);ctx.lineCap="round";ctx.lineJoin="round";
+  // Same centerline path data passed to buildDxf(), not a synthetic preview.
+  ctx.strokeStyle=vectorOnly?"#5fe8dc":"#105cdd";
+  ctx.lineWidth=1.2/sx;
+  for(const path of sheet.paths){
+    if(path.length<2)continue;
+    ctx.beginPath();ctx.moveTo(path[0][0],path[0][1]);
+    for(let j=1;j<path.length;j++)ctx.lineTo(path[j][0],path[j][1]);
+    ctx.stroke();
   }
-  ctx.strokeStyle="#00a88f";ctx.lineWidth=1/previewScale;
-  for(const item of s.texts){
-    if(item.bbox){const b=item.bbox;ctx.strokeRect(b.x0,b.y0,b.x1-b.x0,b.y1-b.y0);}
+  ctx.fillStyle=vectorOnly?"#ffd38b":"#ca870e";
+  ctx.strokeStyle=vectorOnly?"#e8bb5e":"#d68a21";
+  for(const item of sheet.texts){
+    if(!item.value?.trim())continue;
+    const textHeight=Math.max(7,Math.min(120,item.height||11));
+    ctx.font=textHeight+"px Arial, sans-serif";
+    ctx.save();ctx.translate(item.x,item.y);
+    if(item.rotation)ctx.rotate(-(item.rotation*Math.PI/180));
+    ctx.fillText(item.value.slice(0,200),0,0);
+    ctx.restore();
+    if(!vectorOnly&&item.bbox){
+      const b=item.bbox;ctx.lineWidth=.5/sx;
+      ctx.strokeRect(b.x0,b.y0,b.x1-b.x0,b.y1-b.y0);
+    }
   }
   ctx.restore();
-  if(s.roi){
-    ctx.save();ctx.strokeStyle="#ed9415";ctx.lineWidth=2;ctx.setLineDash([9,5]);
-    ctx.strokeRect(s.roi.x0*canvas.width,s.roi.y0*canvas.height,
-      (s.roi.x1-s.roi.x0)*canvas.width,(s.roi.y1-s.roi.y0)*canvas.height);
+  if(sheet.roi){
+    ctx.save();ctx.strokeStyle="#ffb940";ctx.lineWidth=2;ctx.setLineDash([8,5]);
+    ctx.strokeRect(sheet.roi.x0*canvas.width,sheet.roi.y0*canvas.height,
+      (sheet.roi.x1-sheet.roi.x0)*canvas.width,(sheet.roi.y1-sheet.roi.y0)*canvas.height);
     ctx.restore();
   }
-  if(state.cropping?.points?.length===1){
-    const p=state.cropping.points[0];
-    ctx.strokeStyle="#ed9415";ctx.lineWidth=2;
-    ctx.beginPath();ctx.moveTo(p[0]*canvas.width-10,p[1]*canvas.height);
-    ctx.lineTo(p[0]*canvas.width+10,p[1]*canvas.height);
-    ctx.moveTo(p[0]*canvas.width,p[1]*canvas.height-10);
-    ctx.lineTo(p[0]*canvas.width,p[1]*canvas.height+10);ctx.stroke();
+  const marker=(nx,ny,number)=>{
+    const x=nx*canvas.width,y=ny*canvas.height;
+    ctx.save();ctx.strokeStyle="#ffbb43";ctx.fillStyle="#0d2936";ctx.lineWidth=2;
+    ctx.beginPath();ctx.arc(x,y,6,0,Math.PI*2);ctx.fill();ctx.stroke();
+    ctx.beginPath();ctx.moveTo(x-11,y);ctx.lineTo(x+11,y);ctx.moveTo(x,y-11);ctx.lineTo(x,y+11);ctx.stroke();
+    ctx.font="bold 13px Arial";ctx.fillStyle="#ffdc87";ctx.fillText(String(number),x+11,y-10);ctx.restore();
+  };
+  if(state.cropping?.points?.length)for(let i=0;i<state.cropping.points.length;i++){
+    const [nx,ny]=state.cropping.points[i];marker(nx,ny,i+1);
   }
-  const mode=state.view;
-  $("imageCanvas").style.opacity=mode==="overlay"?"0.47":"1";
-  $("imageCanvas").style.display=mode==="vector"?"none":"block";
-  canvas.style.display=mode==="original"?"none":"block";
-  $("stage").classList.toggle("vector-only",mode==="vector");
+  if(state.calibration?.points?.length&&sheet.width&&sheet.height){
+    for(let i=0;i<state.calibration.points.length;i++){
+      const [x,y]=state.calibration.points[i];marker(x/sheet.width,y/sheet.height,i+1);
+    }
+  }
+  $("imageCanvas").style.opacity=vectorOnly?"1":state.view==="overlay"?"0.51":"1";
+  $("imageCanvas").style.display=vectorOnly?"none":"block";
+  canvas.style.display=state.view==="original"?"none":"block";
+  $("stage").classList.toggle("vector-only",vectorOnly);
 }
 function setView(view){
   state.view=view;document.querySelectorAll("#viewTabs button").forEach(b=>{
     const active=b.dataset.view===view;b.classList.toggle("active",active);
     b.setAttribute("aria-pressed",String(active));
   });drawVectors();
+  const sheet=state.sheets[state.selected];
+  if(view==="vector"&&sheet?.status!=="done")viewport.setHint("No converted vectors yet. Use Home → Convert sheet, then select Vectors only.");
 }
 function makeDxf(s){
   if(s.status!=="done")throw Error("Sheet must be converted first");
@@ -481,7 +507,7 @@ $("calibrate").addEventListener("click",()=>{
   if($("stage").hidden||!s.width){status("Load the drawing preview first.");return;}
   if(!Number.isFinite(known)||known<=0){status("Enter a positive known distance before selecting points.");return;}
   state.cropping=null;state.calibration={points:[],known};
-  viewport.setTool("calibrate");$("calibrate").textContent="Pick first point";
+  setView("overlay");viewport.setTool("calibrate");$("calibrate").textContent="Pick first point";
   status("Calibration: zoom into the first endpoint, then click the exact point. Hold Space to pan.");
 });
 function invalidateConversion(s){
