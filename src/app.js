@@ -1,4 +1,5 @@
 import {buildDxf,filenameBase} from "./dxf.js";
+import {recognizeLineTypes,effectiveLineType} from "./linetype.js";
 import {createDrawingViewport} from "./viewport.js";
 import {planTiles,normalizeRoi,clipToTileAndRoi,isEditorWatermark,looksLikeEditorUrl,overlaps,dedupeText} from "./tile-engine.js";
 
@@ -55,7 +56,7 @@ async function ensurePdf(){
   return state.pdfjs;
 }
 function blankSheet(file,name,type,extra={}){
-  return {file,name,type,status:"pending",paths:[],texts:[],width:0,height:0,
+  return {file,name,type,status:"pending",paths:[],styledPaths:[],patternStats:null,lineTypeOverride:"auto",texts:[],width:0,height:0,
     scale:1,calibrated:false,units:"unitless",roi:null,processingDpi:null,tilesProcessed:0,watermarkDetected:false,geometryLayer:presets[$("preset").value][0],
     textLayer:presets[$("preset").value][1],warning:"",...extra};
 }
@@ -274,7 +275,7 @@ async function convertSheet(i){
         x1:x.bbox.x1-tile.left,y1:x.bbox.y1-tile.top
       }));
       const options={threshold:$("threshold").value==="auto"?null:($("threshold").value==="adaptive"?"adaptive":Number($("threshold").value)),
-        minLength:Math.max(4,Number($("minLength").value)||17),
+        minLength:$("detectLinetypes").checked?Math.min(8,Math.max(4,Number($("minLength").value)||17)):Math.max(4,Number($("minLength").value)||17),
         epsilon:Math.max(.2,Number($("epsilon").value)||1.6),maxPaths:12000,
         minComponent:Math.max(0,Number($("speckles").value)||0),masks};
       const result=await trace(canvas,options);
@@ -289,7 +290,15 @@ async function convertSheet(i){
       // Yield so the UI can repaint and browser controls remain responsive.
       await new Promise(resolve=>setTimeout(resolve,0));
     }
-    s.paths=paths;s.texts=dedupeText(texts);s.width=source.width;s.height=source.height;
+    // Infer repeated line/dash patterns from global pixel coordinates.
+    // This identifies visual patterns only, not whether a line is truly hidden.
+    status("Classifying continuous and dashed linework on "+s.name+"...");
+    const recognized=recognizeLineTypes(paths,{
+      enabled:$("detectLinetypes").checked,sensitivity:$("lineTypeSensitivity").value
+    });
+    s.paths=recognized.solidPaths;s.styledPaths=recognized.styledPaths;
+    s.patternStats=recognized.stats;
+    s.texts=dedupeText(texts);s.width=source.width;s.height=source.height;
     if(previousWidth>0&&s.calibrated)s.scale*=previousWidth/source.width;
     s.watermarkDetected=source.watermarkDetected;s.processingDpi=s.type==="pdf"?dpi:null;
     s.tilesProcessed=tiles.length;s.status="done";
@@ -306,6 +315,7 @@ function applySheetSettings(){
   const sheet=state.sheets[state.selected];if(!sheet)return;
   $("scale").value=sheet.scale;$("units").value=sheet.units;
   $("geometryLayer").value=sheet.geometryLayer;$("textLayer").value=sheet.textLayer;
+  $("lineTypeOverride").value=sheet.lineTypeOverride||"auto";
 }
 async function selectSheet(i,force=false){
   if(i<0||i>=state.sheets.length)return;
@@ -331,7 +341,14 @@ function updateStats(){
   $("previewStats").textContent=(s.paths.length||0)+" vectors · "+(s.texts.length||0)+" text entities · "+s.status+
     (s.tilesProcessed?" · "+s.tilesProcessed+" tiles":"")+
     (s.processingDpi?" · "+s.processingDpi+" DPI":"")+
+    (s.styledPaths?.length?" · "+s.styledPaths.length+" reconstructed dash runs":"")+
     (s.warning?" · "+s.warning:"");
+  const styleCounts={DASHED:0,HIDDEN:0};
+  for(const item of s.styledPaths||[])styleCounts[effectiveLineType(item,s.lineTypeOverride)]++;
+  $("linetypeStats").textContent=s.status==="done"?
+    styleCounts.DASHED+" DASHED · "+styleCounts.HIDDEN+" HIDDEN"+
+    (s.patternStats?.segmentsConsumed?" · "+s.patternStats.segmentsConsumed+" source strokes combined":""):
+    "Convert a drawing to analyze its line patterns.";
   const stateText=s.status==="done"?"Converted":s.status==="error"?"Error":s.status==="running"?"Processing":"Not converted";
   $("inspectorState").textContent=stateText;
   $("cropHint").textContent=s.roi?
@@ -362,6 +379,20 @@ function drawVectors(){
     for(let j=1;j<path.length;j++)ctx.lineTo(path[j][0],path[j][1]);
     ctx.stroke();
   }
+  // Use the same reconstructed entities and line patterns as the DXF exporter.
+  // Styles are represented by actual canvas dashes, rather than straight solids.
+  for(const item of sheet.styledPaths||[]){
+    const type=effectiveLineType(item,sheet.lineTypeOverride);
+    if(type!=="DASHED"&&type!=="HIDDEN")continue;
+    ctx.setLineDash([Math.max(2,item.dashPx||12),Math.max(2,item.gapPx||7)]);
+    ctx.strokeStyle=type==="HIDDEN"?(vectorOnly?"#e3bb76":"#b17d27"):
+      (vectorOnly?"#38d0f2":"#07689e");
+    const points=item.points;if(!points?.length)continue;
+    ctx.beginPath();ctx.moveTo(points[0][0],points[0][1]);
+    for(let k=1;k<points.length;k++)ctx.lineTo(points[k][0],points[k][1]);
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
   ctx.fillStyle=vectorOnly?"#ffd38b":"#ca870e";
   ctx.strokeStyle=vectorOnly?"#e8bb5e":"#d68a21";
   for(const item of sheet.texts){
@@ -414,7 +445,8 @@ function setView(view){
 }
 function makeDxf(s){
   if(s.status!=="done")throw Error("Sheet must be converted first");
-  return buildDxf({width:s.width,height:s.height,paths:s.paths,texts:s.texts,
+  return buildDxf({width:s.width,height:s.height,paths:s.paths,styledPaths:s.styledPaths||[],
+    lineTypeOverride:s.lineTypeOverride||"auto",texts:s.texts,
     unitsPerPixel:s.scale,units:s.units,geometryLayer:s.geometryLayer,textLayer:s.textLayer});
 }
 function download(blob,name){
@@ -442,6 +474,8 @@ async function exportZip(){
       manifest.push({name:s.name,output:name,entities:output.geometryCount,texts:output.textCount,
         layers:output.layers,units:s.units,calibrated:s.calibrated,unitsPerPixel:s.scale,
         pageRelativeCoordinates:true,processingDpi:s.processingDpi,tilesProcessed:s.tilesProcessed,
+        linetypes:output.lineTypeCounts,linetypePatterns:output.linePatterns,
+        patternRecognition:s.patternStats||null,linetypeOverride:s.lineTypeOverride,
         drawingArea:s.roi,watermarkDetected:s.watermarkDetected,
         warning:s.warning||"Manual QA required"});
     }
@@ -500,6 +534,18 @@ $("preset").addEventListener("change",()=>{
 });
 syncValue("geometryLayer","geometryLayer",v=>!!v.trim());
 syncValue("textLayer","textLayer",v=>!!v.trim());
+$("lineTypeOverride").addEventListener("change",()=>{
+  const sheet=state.sheets[state.selected];if(!sheet)return;
+  sheet.lineTypeOverride=$("lineTypeOverride").value;
+  updateStats();drawVectors();
+  status("Line style override set to "+sheet.lineTypeOverride+". Review the DXF preview before export.");
+});
+for(const id of ["detectLinetypes","lineTypeSensitivity"]){
+  $(id).addEventListener("change",()=>{
+    if(state.sheets[state.selected]?.status==="done")status("Line detection setting changed. Convert the selected sheet again to apply.");
+  });
+}
+
 syncValue("units","units");
 syncValue("scale","scale",v=>Number.isFinite(Number(v))&&Number(v)>0);
 $("calibrate").addEventListener("click",()=>{
@@ -513,7 +559,8 @@ $("calibrate").addEventListener("click",()=>{
 });
 function invalidateConversion(s){
   if(s.status==="done"||s.status==="error"){
-    s.status="pending";s.paths=[];s.texts=[];s.warning="Drawing area changed; reconvert this sheet.";
+    s.status="pending";s.paths=[];s.styledPaths=[];s.patternStats=null;s.texts=[];
+    s.warning="Drawing area changed; reconvert this sheet.";
     s.tilesProcessed=0;s.processingDpi=null;updateList();
   }
 }
