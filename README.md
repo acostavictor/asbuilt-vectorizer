@@ -37,6 +37,29 @@ The browser conversion pipeline now processes **overlapping 1024px raster tiles*
 7. Convert one sheet, review original/overlay/vectors, then calibrate with a known measurement.
 8. Confirm a **second independent dimension**. Set geometry and annotation layers, export DXF, and inspect it in AutoCAD/Civil 3D.
 
+## v0.6: Native circles and operator hatch repair
+
+### Geometry pipeline
+
+Raster tracing → **CIRCLE fitting** (including sufficiently complete matching arc fragments) → best-fit straightening → small closed-boundary gap repair → manually specified hatch boundaries → automatic hatch recognition → dashed/hidden reconstruction → DXF.
+
+- **Convert → Recognize circles as CAD CIRCLE:** enabled by default. Uses a least-squares center/radius fit, maximum radial error, monotonic turning, and angular coverage checks. A sufficiently complete closed circle or a group of strongly matching arcs becomes one editable \`CIRCLE\` entity. If confidence is insufficient, the original polyline geometry is retained. It does not force ellipses, open arcs or small letter-like loops into circles.
+- **Convert → Close tiny boundary gaps:** enabled by default. Closes only short nearly complete contour gaps with a significant enclosed area, before HATCH detection. It cannot reconstruct a missing wall or infer an untraceable shape.
+- **Automatic hatches:** can now detect two distinct regular hatch families when a crosshatch has an existing trustworthy closed boundary. Hatches still need verification; dense intersections often interrupt raster stroke extraction.
+
+### Repair a broken hatch boundary manually
+
+1. **Convert** the drawing first, and open **Review & scale**.
+2. Choose **Pattern:** \`Use source pattern\`, \`Diagonal lines\`, \`Crosshatch\`, or \`Solid fill\`. For a manual pattern, enter an angle and spacing in **processed pixel units**.
+3. Click **Draw hatch boundary** and click at least three polygon corners on the drawing. You can pan with **Space + drag** and zoom with the mouse wheel while selecting.
+4. Click **Finish hatch**, or press Enter. The app validates the polygon and adds a native DXF \`HATCH\`. If **Use source pattern** cannot confidently recognize a repeated pattern inside your polygon, it will not invent one; explicitly select a manual pattern instead.
+5. Check **Replace matched source strokes** only when you want aligned, straight original hatch strokes inside your selected boundary deleted from the DXF linework. This is off by default to avoid accidentally deleting structure, notes or dimensions. With it off, original source lines may remain behind the new HATCH, so review duplication.
+6. Use **Undo hatch** to remove your most recent manual hatch without reconverting the source PDF. **Esc** cancels boundary picking.
+
+The inspector reports the number of recovered circles, repaired contours, HATCH objects and replaced hatch strokes. All PDF data stays in the client's browser. Batch ZIP manifests include circle fit and manual hatch statistics.
+
+**Limitations:** These are geometry-based heuristics, not AI semantic recognition. CIRCLE fitting will not reliably recover circles hidden behind heavy overlapping linework or lettering; it cannot infer the radius of an incomplete arc. Raster sampling can still cause curvature error. Complex industrial material hatches, multi-island hatch loops, curved hatch boundaries and automatic engineering material identification remain future work. The native HATCH records are nonassociative. The manual tools are not equivalent to editing a DWG in AutoCAD; always inspect the resulting DXF in Civil 3D/AutoCAD before engineering use.
+
 ## v0.5: True HATCH export and geometric straightening
 
 **New conversion order:** tiled raster tracing → conservative best-fit line straightening → enclosed hatch recognition → dashed/hidden linetype recognition → layered DXF export.
