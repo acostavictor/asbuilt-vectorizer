@@ -21,6 +21,7 @@ export function createDrawingViewport({wrapper,stage,readout,crosshair,hint,onPi
     wrapper.classList.toggle("mode-pan",state.tool==="pan");
     wrapper.classList.toggle("mode-calibrate",state.tool==="calibrate");
     wrapper.classList.toggle("mode-crop",state.tool==="crop");
+    wrapper.classList.toggle("mode-hatch",state.tool==="hatch");
     const pan=document.getElementById("toolPan");
     if(pan){pan.classList.toggle("active",state.tool==="pan");pan.setAttribute("aria-pressed",String(state.tool==="pan"));}
   }
@@ -53,12 +54,13 @@ export function createDrawingViewport({wrapper,stage,readout,crosshair,hint,onPi
     state.mode="custom";render();
   }
   function setTool(tool){
-    if(!["pan","calibrate","crop"].includes(tool))throw Error("Unknown drawing tool");
+    if(!["pan","calibrate","crop","hatch"].includes(tool))throw Error("Unknown drawing tool");
     state.tool=tool;
     state.drag=null;wrapper.classList.remove("is-panning");
     crosshair.hidden=tool==="pan";
     setHint(tool==="calibrate"?"Calibration: zoom to the endpoints, then click point 1 and point 2. Press Esc to cancel.":
       tool==="crop"?"Drawing area: click two opposite corners. Scroll to zoom; hold Space to pan.":
+      tool==="hatch"?"Hatch boundary: click vertices on the drawing. Press Finish hatch after at least three points; Space + drag pans.":
       "Pan: drag to move the drawing. Scroll to zoom. Use Review & scale to pick precise points.");
     render();
   }
