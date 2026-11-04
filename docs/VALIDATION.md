@@ -28,3 +28,14 @@ This is an experimental proof of concept, not an engineering-validated product.
 True DWG export, survey georeferencing, CAD curves and Civil 3D intelligent objects, native vector PDF path preservation, angled OCR, automatic discipline classification, engineering tolerances or perfect conversion.
 
 **Do not use the resulting DXF for design or construction without qualified engineering review.**
+
+## Additional v0.4 linetype QA
+
+- Check five or more repeated short strokes are recognized as one editable DXF LINE with group 6 = DASHED or HIDDEN.
+- Verify each referenced linetype exists in the DXF LTYPE table and is displayed in AutoCAD/Civil 3D after REGEN.
+- Confirm dash/gap pattern lengths scale with model-space calibration. Do not rely on automatic plot appearance.
+- Test angled, nearly horizontal, lightly scanned and irregularly spaced lines.
+- Check unrelated letter strokes, hatched fills, double-line pipe edges, walls, structural grids and dimension witness lines are **not** falsely joined.
+- Check the *All DASHED* / *All HIDDEN* override changes the export without changing solid geometry.
+- Review group counts and stitch gaps at tile boundaries. The detector does not guarantee continuity across all tile seams.
+- Verify source drawings independently; inferred HIDDEN vs DASHED does not prove an object is physically hidden.
