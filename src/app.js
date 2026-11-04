@@ -1,8 +1,9 @@
 import {buildDxf,filenameBase} from "./dxf.js";
+import {planTiles,normalizeRoi,clipToTileAndRoi,isEditorWatermark,looksLikeEditorUrl,overlaps,dedupeText} from "./tile-engine.js";
 
 const $=id=>document.getElementById(id);
 const state={sheets:[],selected:-1,busy:false,view:"overlay",calibration:null,pdfjs:null,ocrWorker:null,worker:null,
-  token:0,workerId:0,pending:new Map()};
+  token:0,workerId:0,pending:new Map(),cropping:null};
 const MAX_SHEETS=50,MAX_RENDER_PIXELS=3200000;
 const presets={
   generic:["VEC-POLYLINES","ANNO-TEXT"],civil:["C-UNCLASSIFIED","C-ANNO"],
@@ -50,7 +51,7 @@ async function ensurePdf(){
 }
 function blankSheet(file,name,type,extra={}){
   return {file,name,type,status:"pending",paths:[],texts:[],width:0,height:0,
-    scale:1,calibrated:false,units:"unitless",geometryLayer:presets[$("preset").value][0],
+    scale:1,calibrated:false,units:"unitless",roi:null,processingDpi:null,tilesProcessed:0,watermarkDetected:false,geometryLayer:presets[$("preset").value][0],
     textLayer:presets[$("preset").value][1],warning:"",...extra};
 }
 async function ingest(files){
@@ -164,32 +165,134 @@ function trace(canvas,options){
     }catch(e){state.pending.delete(id);reject(e);}
   });
 }
-async function convertSheet(i){
-  const s=state.sheets[i];s.status="running";updateList();
-  try{
-    status("Rendering "+s.name+"...");
-    const {canvas,nativeTexts}=await renderSheet(s);
-    const texts=[...nativeTexts];
-    if($("ocr").checked){
-      status("Reading annotations on "+s.name+"...");
-      const recognized=await readOcr(canvas);
-      // Prefer existing native PDF text rather than duplicates at the same positions.
-      for(const item of recognized){
-        if(!nativeTexts.some(n=>Math.hypot(n.x-item.x,n.y-item.y)<Math.max(12,item.height)))texts.push(item);
+async function makeTileSource(sheet,dpi){
+  if(sheet.type==="pdf"){
+    const page=await sheet.document.getPage(sheet.page);
+    const viewport=page.getViewport({scale:dpi/72});
+    const width=Math.max(1,Math.round(viewport.width)),height=Math.max(1,Math.round(viewport.height));
+    const watermarkZones=[];
+    let nativeTexts=[],watermarkDetected=false;
+    try{
+      const annotations=await page.getAnnotations({intent:"display"});
+      for(const item of annotations){
+        const url=item.url||item.unsafeUrl||"";
+        if(!looksLikeEditorUrl(url)||!item.rect)continue;
+        const rect=viewport.convertToViewportRectangle(item.rect);
+        watermarkZones.push({x0:Math.min(rect[0],rect[2]),y0:Math.min(rect[1],rect[3]),
+          x1:Math.max(rect[0],rect[2]),y1:Math.max(rect[1],rect[3])});
       }
-    }
-    status("Tracing centerlines on "+s.name+"...");
-    const options={threshold:$("threshold").value==="auto"?null:Number($("threshold").value),
-      minLength:Math.max(4,Number($("minLength").value)||17),epsilon:Math.max(.2,Number($("epsilon").value)||1.6),
-      masks:texts.map(t=>t.bbox).filter(Boolean)};
-    const result=await trace(canvas,options);
-    s.paths=result.paths;s.texts=texts;s.width=canvas.width;s.height=canvas.height;
-    s.warning=(result.truncated?"Vector limit reached; some geometry omitted. ":"")+
-      (!result.thinningConverged?"Thinning did not converge. ":"");
-    s.stats=result;s.status="done";
-  }catch(e){
-    s.status="error";s.warning=e?.message||String(e);console.error("Conversion error",e);
+      const content=await page.getTextContent();
+      watermarkDetected=isEditorWatermark(content.items)||watermarkZones.length>=2;
+      const discardAllNative=$("removeWatermark").checked&&isEditorWatermark(content.items);
+      if(!discardAllNative)for(const item of content.items){
+        if(!item.str?.trim()||!item.transform)continue;
+        if($("removeWatermark").checked&&/click\s+to\s+buy\s+now/i.test(item.str))continue;
+        const matrix=state.pdfjs.Util.transform(viewport.transform,item.transform);
+        const x=matrix[4],y=matrix[5],h=Math.max(3,Math.hypot(matrix[2],matrix[3]));
+        const bbox={x0:x-2,y0:y-h-2,x1:x+Math.max(h,(item.width||0)*dpi/72),y1:y+3};
+        if(!Number.isFinite(x)||!Number.isFinite(y))continue;
+        if($("removeWatermark").checked&&watermarkZones.some(zone=>overlaps(zone,bbox)))continue;
+        nativeTexts.push({value:item.str.trim(),x,y,height:h,bbox,native:true});
+      }
+    }catch(e){console.warn("PDF text/watermark inspection failed:",e);}
+    return {width,height,nativeTexts,watermarkDetected,
+      async render(tile){
+        const canvas=document.createElement("canvas");
+        canvas.width=tile.width;canvas.height=tile.height;
+        const ctx=canvas.getContext("2d",{willReadFrequently:true});
+        // PDF.js draws in sheet-wide viewport coordinates shifted to the tile.
+        await page.render({canvasContext:ctx,viewport,transform:[1,0,0,1,-tile.left,-tile.top],
+          background:"#FFFFFF"}).promise;
+        if($("removeWatermark").checked){
+          ctx.fillStyle="#FFFFFF";
+          for(const zone of watermarkZones){
+            if(zone.x1<tile.left||zone.x0>tile.left+tile.width||zone.y1<tile.top||zone.y0>tile.top+tile.height)continue;
+            ctx.fillRect(zone.x0-tile.left-2,zone.y0-tile.top-2,
+              zone.x1-zone.x0+4,zone.y1-zone.y0+4);
+          }
+        }
+        return canvas;
+      },
+      close(){page.cleanup();}
+    };
   }
+  const bitmap=await createImageBitmap(sheet.file);
+  if(bitmap.width*bitmap.height>160000000){bitmap.close();throw Error("Image exceeds the 160 MP local processing limit");}
+  return {width:bitmap.width,height:bitmap.height,nativeTexts:[],watermarkDetected:false,
+    async render(tile){
+      const canvas=document.createElement("canvas");canvas.width=tile.width;canvas.height=tile.height;
+      const ctx=canvas.getContext("2d",{willReadFrequently:true});
+      ctx.fillStyle="#FFFFFF";ctx.fillRect(0,0,tile.width,tile.height);
+      ctx.drawImage(bitmap,tile.left,tile.top,tile.width,tile.height,0,0,tile.width,tile.height);
+      return canvas;
+    },
+    close(){bitmap.close();}
+  };
+}
+async function convertSheet(i){
+  const s=state.sheets[i];s.status="running";s.warning="";updateList();
+  let source;
+  try{
+    const dpi=Number($("dpi").value)||150;
+    status("Preparing high-resolution tiles for "+s.name+"...");
+    source=await makeTileSource(s,dpi);
+    const {tiles,area}=planTiles(source.width,source.height,
+      {tileSize:1024,overlap:48,roi:s.roi,maxTiles:600});
+    const previousWidth=s.width;
+    const texts=source.nativeTexts.filter(t=>overlaps(t.bbox,area));
+    const paths=[];let truncatedTiles=0,nonConvergedTiles=0;
+    for(let t=0;t<tiles.length;t++){
+      const tile=tiles[t];
+      status("Processing "+s.name+": tile "+(t+1)+"/"+tiles.length+
+        ($("ocr").checked?" (OCR enabled)":""));
+      const canvas=await source.render(tile);
+      const nativeTileTexts=texts.filter(x=>x.x>=tile.left&&x.x<tile.left+tile.width&&
+        x.y>=tile.top&&x.y<tile.top+tile.height);
+      const tileTexts=[];
+      if($("ocr").checked){
+        try{
+          const found=await readOcr(canvas);
+          for(const item of found){
+            const gx=item.x+tile.left,gy=item.y+tile.top;
+            if(gx<tile.x0||gx>=tile.x1||gy<tile.y0||gy>=tile.y1)continue;
+            if(gx<area.x0||gx>=area.x1||gy<area.y0||gy>=area.y1)continue;
+            if(nativeTileTexts.some(n=>Math.hypot(n.x-gx,n.y-gy)<Math.max(12,item.height)))continue;
+            tileTexts.push({...item,x:gx,y:gy,
+              bbox:{x0:item.bbox.x0+tile.left,y0:item.bbox.y0+tile.top,
+                x1:item.bbox.x1+tile.left,y1:item.bbox.y1+tile.top}});
+          }
+        }catch(e){throw Error("Local OCR failed: "+e.message);}
+      }
+      texts.push(...tileTexts);
+      const masks=nativeTileTexts.concat(tileTexts).map(x=>({
+        x0:x.bbox.x0-tile.left,y0:x.bbox.y0-tile.top,
+        x1:x.bbox.x1-tile.left,y1:x.bbox.y1-tile.top
+      }));
+      const options={threshold:$("threshold").value==="auto"?null:Number($("threshold").value),
+        minLength:Math.max(4,Number($("minLength").value)||17),
+        epsilon:Math.max(.2,Number($("epsilon").value)||1.6),maxPaths:12000,masks};
+      const result=await trace(canvas,options);
+      if(result.truncated)truncatedTiles++;
+      if(!result.thinningConverged)nonConvergedTiles++;
+      for(const path of result.paths){
+        const global=path.map(p=>[p[0]+tile.left,p[1]+tile.top]);
+        paths.push(...clipToTileAndRoi(global,tile,area));
+      }
+      canvas.width=canvas.height=0;
+      $("progress").style.width=Math.round(100*(t+1)/tiles.length)+"%";
+      // Yield so the UI can repaint and browser controls remain responsive.
+      await new Promise(resolve=>setTimeout(resolve,0));
+    }
+    s.paths=paths;s.texts=dedupeText(texts);s.width=source.width;s.height=source.height;
+    if(previousWidth>0&&s.calibrated)s.scale*=previousWidth/source.width;
+    s.watermarkDetected=source.watermarkDetected;s.processingDpi=s.type==="pdf"?dpi:null;
+    s.tilesProcessed=tiles.length;s.status="done";
+    s.warning=(truncatedTiles?truncatedTiles+" tiles reached the vector cap. ":"")+
+      (nonConvergedTiles?nonConvergedTiles+" tiles did not fully thin. ":"")+
+      (source.watermarkDetected?"PDF-XChange overlay detected"+($("removeWatermark").checked?" and filtered. ":". "):"")+
+      (!s.calibrated?"Output is not calibrated. ":"");
+  }catch(e){s.status="error";s.warning=e?.message||String(e);console.error("Conversion error",e);}
+  finally{if(source)source.close();}
   updateList();
   if(i===state.selected)await selectSheet(i,true);
 }
