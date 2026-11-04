@@ -18,6 +18,7 @@ The browser conversion pipeline now processes **overlapping 1024px raster tiles*
 
 - **Drawing area (ROI):** pick two corners in the preview to limit tracing to the intended engineering drawing area. Changing ROI invalidates any previous conversion.
 - **PDF-XChange trial watermark:** detect distinctive trial text layers and linked overlay zones; where recognized, omit watermark text from CAD and paint detected link zones white in tile processing. This is not a general-purpose PDF watermark removal tool.
+- **Scan cleanup:** choose global threshold or an adaptive local threshold for faded and unevenly exposed scans. Optional connected-component speckle cleanup is off by default so small engineering symbols are not silently removed.
 - **OCR:** optionally run Tesseract locally on each tile, deduplicate overlap detections, and export editable DXF TEXT entities. Human correction remains necessary.
 - **Tile seams:** clip output paths to nonoverlapping tile cores so adjacent processing areas do not duplicate geometry.
 - **Improved preview:** rescale high-resolution path coordinates when drawing them over the low-resolution page preview.
@@ -29,11 +30,12 @@ The browser conversion pipeline now processes **overlapping 1024px raster tiles*
 
 1. Open the deployed app on desktop Chrome or Edge.
 2. Import one PDF sheet and choose **150 DPI** first; switch to 200 or 240 DPI for thin linework only after measuring performance.
-3. Use **Select drawing area** to exclude unnecessary title blocks and borders when they are not needed.
-4. Leave **Filter PDF-XChange watermark regions** enabled for PDFs with those overlays.
-5. Enable OCR if editable printed annotations are needed. Expect much longer processing time.
-6. Convert one sheet, review original/overlay/vectors, then calibrate with a known measurement.
-7. Confirm a **second independent dimension**. Set geometry and annotation layers, export DXF, and inspect it in AutoCAD/Civil 3D.
+3. Try **Adaptive (faded scans)** if thin lines disappear. Use small speckle cleanup only if isolated scan noise is problematic.
+4. Use **Select drawing area** to exclude unnecessary title blocks and borders when they are not needed.
+5. Leave **Filter PDF-XChange watermark regions** enabled for PDFs with those overlays.
+6. Enable OCR if editable printed annotations are needed. Expect much longer processing time.
+7. Convert one sheet, review original/overlay/vectors, then calibrate with a known measurement.
+8. Confirm a **second independent dimension**. Set geometry and annotation layers, export DXF, and inspect it in AutoCAD/Civil 3D.
 
 ## How it works
 
