@@ -303,8 +303,8 @@ function applySheetSettings(){
 }
 async function selectSheet(i,force=false){
   if(i<0||i>=state.sheets.length)return;
-  state.selected=i;state.calibration=null;
-  $("canvaswrap").classList.remove("calibrating");$("calibrate").textContent="Select 2 points";
+  state.selected=i;state.calibration=null;state.cropping=null;
+  $("canvaswrap").classList.remove("calibrating");$("calibrate").textContent="Select 2 points";$("crop").textContent="Select drawing area";
   const s=state.sheets[i];applySheetSettings();updateList();$("previewTitle").textContent=s.name;
   const token=++state.token;
   if(!force&&s.previewToken===token)return;
@@ -325,7 +325,12 @@ async function selectSheet(i,force=false){
 function updateStats(){
   const s=state.sheets[state.selected];if(!s)return;
   $("previewStats").textContent=(s.paths.length||0)+" vectors · "+(s.texts.length||0)+" text entities · "+s.status+
+    (s.tilesProcessed?" · "+s.tilesProcessed+" tiles":"")+
+    (s.processingDpi?" · "+s.processingDpi+" DPI":"")+
     (s.warning?" · "+s.warning:"");
+  $("cropHint").textContent=s.roi?
+    "Drawing area selected. Only that region will be traced. Reconvert after changes.":
+    "Optional: choose two opposite corners of the drawing to exclude borders or title blocks.";
   $("coordinateStatus").textContent=(s.calibrated?"Calibrated":"UNCALIBRATED")+" · "+s.units+
     " · "+Number(s.scale).toPrecision(5)+" drawing units/pixel · page-relative origin";
   $("calibrationHint").textContent=s.calibrated?
@@ -336,7 +341,9 @@ function drawVectors(){
   const s=state.sheets[state.selected],canvas=$("vectorCanvas");
   if(!s||!canvas.width)return;
   const ctx=canvas.getContext("2d");ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.strokeStyle="#1261ed";ctx.lineWidth=1.35;ctx.lineJoin="round";
+  ctx.save();
+  if(s.width>0&&s.height>0)ctx.scale(canvas.width/s.width,canvas.height/s.height);
+  ctx.strokeStyle="#1261ed";ctx.lineWidth=1.5;ctx.lineJoin="round";
   for(const path of s.paths){
     if(path.length<2)continue;ctx.beginPath();ctx.moveTo(path[0][0],path[0][1]);
     for(let j=1;j<path.length;j++)ctx.lineTo(path[j][0],path[j][1]);ctx.stroke();
@@ -344,6 +351,21 @@ function drawVectors(){
   ctx.strokeStyle="#00a88f";ctx.lineWidth=1;
   for(const item of s.texts){
     if(item.bbox){const b=item.bbox;ctx.strokeRect(b.x0,b.y0,b.x1-b.x0,b.y1-b.y0);}
+  }
+  ctx.restore();
+  if(s.roi){
+    ctx.save();ctx.strokeStyle="#ed9415";ctx.lineWidth=2;ctx.setLineDash([9,5]);
+    ctx.strokeRect(s.roi.x0*canvas.width,s.roi.y0*canvas.height,
+      (s.roi.x1-s.roi.x0)*canvas.width,(s.roi.y1-s.roi.y0)*canvas.height);
+    ctx.restore();
+  }
+  if(state.cropping?.points?.length===1){
+    const p=state.cropping.points[0];
+    ctx.strokeStyle="#ed9415";ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(p[0]*canvas.width-10,p[1]*canvas.height);
+    ctx.lineTo(p[0]*canvas.width+10,p[1]*canvas.height);
+    ctx.moveTo(p[0]*canvas.width,p[1]*canvas.height-10);
+    ctx.lineTo(p[0]*canvas.width,p[1]*canvas.height+10);ctx.stroke();
   }
   const mode=state.view;
   $("imageCanvas").style.opacity=mode==="vector"?"0":mode==="overlay"?"0.55":"1";
@@ -381,7 +403,9 @@ async function exportZip(){
       zip.file(name,output.content);
       manifest.push({name:s.name,output:name,entities:output.geometryCount,texts:output.textCount,
         layers:output.layers,units:s.units,calibrated:s.calibrated,unitsPerPixel:s.scale,
-        pageRelativeCoordinates:true,warning:s.warning||"Manual QA required"});
+        pageRelativeCoordinates:true,processingDpi:s.processingDpi,tilesProcessed:s.tilesProcessed,
+        drawingArea:s.roi,watermarkDetected:s.watermarkDetected,
+        warning:s.warning||"Manual QA required"});
     }
     zip.file("QA-manifest.json",JSON.stringify({
       product:"AsBuilt Vectorizer",status:"experimental",generatedAt:new Date().toISOString(),
@@ -446,11 +470,46 @@ $("calibrate").addEventListener("click",()=>{
   $("canvaswrap").classList.add("calibrating");$("calibrate").textContent="Click point 1 on drawing";
   status("Calibration: click the first point, then the second point of the known distance.");
 });
+function invalidateConversion(s){
+  if(s.status==="done"||s.status==="error"){
+    s.status="pending";s.paths=[];s.texts=[];s.warning="Drawing area changed; reconvert this sheet.";
+    s.tilesProcessed=0;s.processingDpi=null;updateList();
+  }
+}
+$("crop").addEventListener("click",()=>{
+  const s=state.sheets[state.selected];if(!s)return;
+  state.calibration=null;state.cropping={points:[]};
+  $("calibrate").textContent="Select 2 points";$("crop").textContent="Click first corner";
+  $("canvaswrap").classList.add("calibrating");
+  status("Select two opposite corners of the engineering drawing in the preview.");
+});
+$("clearCrop").addEventListener("click",()=>{
+  const s=state.sheets[state.selected];if(!s)return;
+  s.roi=null;state.cropping=null;
+  $("crop").textContent="Select drawing area";$("canvaswrap").classList.remove("calibrating");
+  invalidateConversion(s);drawVectors();updateStats();status("Drawing area cleared. Reconvert for full-sheet output.");
+});
 $("stage").addEventListener("click",e=>{
-  if(!state.calibration)return;
+  if(!state.calibration&&!state.cropping)return;
   const rect=$("stage").getBoundingClientRect(),s=state.sheets[state.selected];
-  const x=(e.clientX-rect.left)/rect.width*s.width,y=(e.clientY-rect.top)/rect.height*s.height;
-  if(!Number.isFinite(x)||!Number.isFinite(y))return;
+  const nx=Math.min(1,Math.max(0,(e.clientX-rect.left)/rect.width));
+  const ny=Math.min(1,Math.max(0,(e.clientY-rect.top)/rect.height));
+  if(!Number.isFinite(nx)||!Number.isFinite(ny))return;
+  if(state.cropping){
+    state.cropping.points.push([nx,ny]);
+    if(state.cropping.points.length===1){$("crop").textContent="Click opposite corner";drawVectors();return;}
+    const [a,b]=state.cropping.points,roi={
+      x0:Math.min(a[0],b[0]),y0:Math.min(a[1],b[1]),
+      x1:Math.max(a[0],b[0]),y1:Math.max(a[1],b[1])
+    };
+    if((roi.x1-roi.x0)<.01||(roi.y1-roi.y0)<.01){
+      status("Selected area is too small. Please try again.");
+    }else{s.roi=roi;invalidateConversion(s);status("Drawing area selected. Convert again to apply.");}
+    state.cropping=null;$("canvaswrap").classList.remove("calibrating");
+    $("crop").textContent="Select drawing area";drawVectors();updateStats();return;
+  }
+  if(!s.width||!s.height){status("Convert the sheet before calibrating its scale.");return;}
+  const x=nx*s.width,y=ny*s.height;
   state.calibration.points.push([x,y]);
   if(state.calibration.points.length===1){$("calibrate").textContent="Click point 2 on drawing";return;}
   const [a,b]=state.calibration.points,pixels=Math.hypot(a[0]-b[0],a[1]-b[1]);
