@@ -13,7 +13,7 @@
   <div class="identity"><span class="logo" aria-hidden="true">AV</span>
     <div><span class="brand-title">AsBuilt Vectorizer</span><span class="brand-sub">Engineering drawing studio</span></div></div>
   <div class="app-top-status"><span class="lock"></span><p id="jobStatus" role="status" aria-live="polite">Open a PDF or scanned drawing to begin.</p></div>
-  <div class="header-actions"><span class="header-pill">Local browser processing</span><span class="header-version">Preview v0.4</span></div>
+  <div class="header-actions"><span class="header-pill">Local browser processing</span><span class="header-version">Preview v0.5</span></div>
 </header>
 
 <nav class="ribbon-shell" aria-label="Drawing tools">
@@ -65,6 +65,14 @@
         </label>
       </div><div class="ribbon-group-label">Linetype recognition</div></div>
       <div class="ribbon-group"><div class="ribbon-controls ribbon-stack">
+        <label class="ribbon-check"><input id="straightenLines" type="checkbox" checked>Keep straight lines straight</label>
+        <label class="ribbon-check"><input id="snapOrthogonal" type="checkbox">Snap nearly horizontal / vertical</label>
+      </div><div class="ribbon-group-label">Geometry</div></div>
+      <div class="ribbon-group"><div class="ribbon-controls ribbon-stack">
+        <label class="ribbon-check"><input id="detectHatches" type="checkbox" checked>Recognize enclosed hatches</label>
+        <span class="ribbon-note">Requires a closed boundary and regular pattern</span>
+      </div><div class="ribbon-group-label">Hatches</div></div>
+      <div class="ribbon-group"><div class="ribbon-controls ribbon-stack">
         <label class="ribbon-check"><input type="checkbox" id="ocr">Recognize printed text (OCR)</label>
         <label class="ribbon-check"><input type="checkbox" id="removeWatermark" checked>Filter PDF-XChange trial overlays</label>
       </div><div class="ribbon-group-label">Text &amp; cleanup</div></div>
@@ -87,6 +95,7 @@
           <select id="preset"><option value="generic">General engineering</option><option value="civil">Civil</option><option value="architecture">Architecture</option><option value="structure">Structural</option><option value="mep">MEP</option></select></label>
         <label class="ribbon-field wide">Linework layer<input id="geometryLayer" value="VEC-POLYLINES" maxlength="120"></label>
         <label class="ribbon-field wide">Text layer<input id="textLayer" value="ANNO-TEXT" maxlength="120"></label>
+        <label class="ribbon-field wide">Hatch layer<input id="hatchLayer" value="HATCH-REVIEW" maxlength="120"></label>
         <label class="ribbon-select">Detected linetypes<select id="lineTypeOverride" title="Override the type of all detected dashed-line groups on this sheet">
           <option value="auto">Auto (review)</option><option value="DASHED">All DASHED</option><option value="HIDDEN">All HIDDEN</option>
         </select></label>
@@ -154,6 +163,10 @@
     <div class="inspector-title">Drawing properties <button id="closeInspector" class="icon-button" type="button" aria-label="Hide properties">✕</button></div>
     <section class="inspector-section"><h3>Conversion status</h3><span class="inspector-status" id="inspectorState">No sheet</span>
       <div id="previewStats" class="inspector-stats">No sheet selected</div></section>
+    <section class="inspector-section"><h3>Reconstructed geometry</h3>
+      <p class="inspector-stats" id="geometryStats">Convert a drawing to review straightening and hatch recognition.</p>
+      <p class="inspector-small">Hatches are created only where a closed boundary and repeated, regular linework agree. Inspect exported CAD hatches before use.</p>
+    </section>
     <section class="inspector-section"><h3>Detected line styles</h3>
       <p class="inspector-stats" id="linetypeStats">Convert a drawing to analyze its line patterns.</p>
       <div class="style-samples" aria-hidden="true"><span><i class="sample-dashed"></i>DASHED</span><span><i class="sample-hidden"></i>HIDDEN</span></div>
