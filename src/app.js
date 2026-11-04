@@ -275,7 +275,7 @@ async function convertSheet(i){
         x1:x.bbox.x1-tile.left,y1:x.bbox.y1-tile.top
       }));
       const options={threshold:$("threshold").value==="auto"?null:($("threshold").value==="adaptive"?"adaptive":Number($("threshold").value)),
-        minLength:$("detectLinetypes").checked?Math.min(8,Math.max(4,Number($("minLength").value)||17)):Math.max(4,Number($("minLength").value)||17),
+        minLength:$("detectLinetypes").checked?Math.min($("lineTypeSensitivity").value==="sensitive"?5:8,Math.max(4,Number($("minLength").value)||17)):Math.max(4,Number($("minLength").value)||17),
         epsilon:Math.max(.2,Number($("epsilon").value)||1.6),maxPaths:12000,
         minComponent:Math.max(0,Number($("speckles").value)||0),masks};
       const result=await trace(canvas,options);
