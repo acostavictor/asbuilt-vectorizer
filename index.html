@@ -48,10 +48,11 @@
     <div class="divider"></div>
     <section><h2>02 &nbsp;Conversion controls</h2>
       <div class="grid2">
-        <div class="field"><label for="threshold">Threshold</label><select id="threshold"><option value="auto">Automatic</option><option value="150">Light · 150</option><option value="185">Medium · 185</option><option value="215">Dark · 215</option></select></div>
+        <div class="field"><label for="threshold">Threshold</label><select id="threshold"><option value="auto">Automatic (global)</option><option value="adaptive">Adaptive (faded scans)</option><option value="150">Light · 150</option><option value="185">Medium · 185</option><option value="215">Dark · 215</option></select></div>
         <div class="field"><label for="minLength">Min. line (px)</label><input id="minLength" type="number" min="4" max="250" value="17"></div>
       </div>
       <div class="field"><label for="epsilon">Line smoothing (px)</label><input id="epsilon" type="number" min="0.2" max="10" step="0.2" value="1.6"></div>
+      <div class="field"><label for="speckles">Remove tiny speckles (connected pixels)</label><select id="speckles"><option value="0" selected>Off · preserve all detail</option><option value="3">Small · 1–2 px</option><option value="6">Medium · 1–5 px</option><option value="12">Strong · 1–11 px</option></select></div>
       <label class="switch"><input type="checkbox" id="ocr">OCR printed annotations (slower)</label>
       <p class="hint">Experimental centerline tracing. Text masks are removed from traced pixels when OCR is enabled.</p>
     </section>
