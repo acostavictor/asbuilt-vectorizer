@@ -1,0 +1,21 @@
+name: Validate conversion engine
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check application syntax
+        run: |
+          node --check src/app.js
+          node --check src/geometry.js
+          node --check src/dxf.js
+          node --check src/vector-worker.js
+      - name: Test local conversion core
+        run: npm test
