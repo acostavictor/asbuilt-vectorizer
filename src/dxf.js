@@ -18,13 +18,13 @@ function makeLinetype(name,dash,gap){
     pair(72,65)+pair(73,2)+pair(40,number(positive+negative))+
     pair(49,number(positive))+pair(74,0)+pair(49,number(-negative))+pair(74,0);
 }
-export function buildDxf({width,height,paths=[],styledPaths=[],lineTypeOverride="auto",
+export function buildDxf({width,height,paths=[],hatches=[],hatchLayer="HATCH-REVIEW",styledPaths=[],lineTypeOverride="auto",
   texts=[],unitsPerPixel=1,geometryLayer="VEC-POLYLINES",
   textLayer="ANNO-TEXT",units="unitless",originX=0,originY=0}){
   if(!Number.isFinite(unitsPerPixel)||unitsPerPixel<=0)throw Error("Invalid calibration scale");
-  const geometry=layerName(geometryLayer),annotation=layerName(textLayer);
-  const names=[...new Set([geometry,annotation,"QA-REVIEW","UNCLASSIFIED"])];
-  const indices={"QA-REVIEW":1,"ANNO-TEXT":2,"VEC-POLYLINES":4,"UNCLASSIFIED":7};
+  const geometry=layerName(geometryLayer),annotation=layerName(textLayer),hatched=layerName(hatchLayer);
+  const names=[...new Set([geometry,annotation,hatched,"QA-REVIEW","UNCLASSIFIED"])];
+  const indices={"QA-REVIEW":1,"ANNO-TEXT":2,"VEC-POLYLINES":4,"HATCH-REVIEW":8,"UNCLASSIFIED":7};
   const insunits={unitless:0,inches:1,feet:2,millimeters:4,centimeters:5,meters:6}[units]??0;
   const styles={};
   for(const item of styledPaths){
@@ -74,6 +74,32 @@ export function buildDxf({width,height,paths=[],styledPaths=[],lineTypeOverride=
     if(!styles[type])continue;
     if(addPath(item.points,type)){geometryCount.styled++;counts[type]++;}
   }
+  // Native non-associative HATCH: one real boundary loop with the scanned line
+  // family encoded as a regular user-defined pattern. No source hatch strokes
+  // are exported separately when they were consumed by the hatch recognizer.
+  let hatchCount=0;
+  for(const hatch of hatches){
+    if(!Array.isArray(hatch?.boundary)||hatch.boundary.length<3)continue;
+    const vertices=hatch.boundary.map(map);
+    if(vertices.some(p=>!p.every(Number.isFinite)))continue;
+    const spacing=hatch.spacingPx*unitsPerPixel;
+    const angleRad=-(hatch.angleDegrees||0)*Math.PI/180;
+    if(!Number.isFinite(spacing)||spacing<=0||!Number.isFinite(angleRad))continue;
+    const origin=map(hatch.origin||hatch.boundary[0]);
+    const deltaX=-Math.sin(angleRad)*spacing,deltaY=Math.cos(angleRad)*spacing;
+    d+=pair(0,"HATCH")+pair(100,"AcDbEntity")+pair(8,hatched)+
+      pair(100,"AcDbHatch")+pair(10,0)+pair(20,0)+pair(30,0)+
+      pair(210,0)+pair(220,0)+pair(230,1)+
+      pair(2,"AV_SCAN")+pair(70,0)+pair(71,0)+pair(91,1)+
+      pair(92,3)+pair(72,0)+pair(73,1)+pair(93,vertices.length);
+    for(const p of vertices)d+=coords(p[0],p[1]);
+    d+=pair(97,0)+pair(75,0)+pair(76,0)+pair(52,0)+pair(41,1)+
+      pair(77,0)+pair(78,1)+pair(53,number(angleRad*180/Math.PI))+
+      pair(43,number(origin[0]))+pair(44,number(origin[1]))+
+      pair(45,number(deltaX))+pair(46,number(deltaY))+pair(79,0)+
+      pair(98,0);
+    hatchCount++;
+  }
   for(const item of texts){
     const txt=clean(item.value).slice(0,240);if(!txt)continue;
     const pt=map([item.x,item.y]);
@@ -85,5 +111,5 @@ export function buildDxf({width,height,paths=[],styledPaths=[],lineTypeOverride=
   d+=pair(0,"ENDSEC")+pair(0,"EOF");
   return {content:d,geometryCount:geometryCount.solid+geometryCount.styled,textCount,
     styledCount:geometryCount.styled,lineTypes:Object.keys(styles),lineTypeCounts:counts,
-    linePatterns,layers:names,insunits};
+    linePatterns,hatchCount,hatchLayer:hatched,layers:names,insunits};
 }
