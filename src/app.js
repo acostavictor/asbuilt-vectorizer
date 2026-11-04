@@ -2,12 +2,14 @@ import {buildDxf,filenameBase} from "./dxf.js";
 import {recognizeLineTypes,effectiveLineType} from "./linetype.js";
 import {straightenPaths} from "./straightening.js";
 import {detectHatches} from "./hatch.js";
+import {recognizeCircles} from "./circles.js";
+import {repairNearClosedContours,validatePolygon,applyManualHatches} from "./hatch-repair.js";
 import {createDrawingViewport} from "./viewport.js";
 import {planTiles,normalizeRoi,clipToTileAndRoi,isEditorWatermark,looksLikeEditorUrl,overlaps,dedupeText} from "./tile-engine.js";
 
 const $=id=>document.getElementById(id);
 const state={sheets:[],selected:-1,busy:false,view:"overlay",calibration:null,pdfjs:null,ocrWorker:null,worker:null,
-  token:0,workerId:0,pending:new Map(),cropping:null};
+  token:0,workerId:0,pending:new Map(),cropping:null,hatchEditing:null};
 const MAX_SHEETS=50,MAX_RENDER_PIXELS=3200000;
 const viewport=createDrawingViewport({
   wrapper:$("canvaswrap"),stage:$("stage"),readout:$("zoomReadout"),
@@ -58,7 +60,8 @@ async function ensurePdf(){
   return state.pdfjs;
 }
 function blankSheet(file,name,type,extra={}){
-  return {file,name,type,status:"pending",paths:[],hatches:[],hatchStats:null,straightStats:null,styledPaths:[],patternStats:null,lineTypeOverride:"auto",texts:[],width:0,height:0,
+  return {file,name,type,status:"pending",paths:[],sourcePaths:[],circles:[],circleStats:null,contourStats:null,
+    manualHatchSpecs:[],manualHatchResults:[],hatches:[],hatchStats:null,straightStats:null,styledPaths:[],patternStats:null,lineTypeOverride:"auto",texts:[],width:0,height:0,
     scale:1,calibrated:false,units:"unitless",roi:null,processingDpi:null,tilesProcessed:0,watermarkDetected:false,geometryLayer:presets[$("preset").value][0],
     textLayer:presets[$("preset").value][1],hatchLayer:"HATCH-REVIEW",warning:"",...extra};
 }
@@ -292,23 +295,25 @@ async function convertSheet(i){
       // Yield so the UI can repaint and browser controls remain responsive.
       await new Promise(resolve=>setTimeout(resolve,0));
     }
-    // Flatten scan wobble only if a best-fit straight line meets the deviation
-    // budget. Preserve curved / stepped geometry exactly as traced.
-    status("Straightening clean linear geometry on "+s.name+"...");
-    const corrected=$("straightenLines").checked?straightenPaths(paths,{
+    // Circle fitting takes priority: a complete round feature must be a CAD
+    // CIRCLE, not a straightened collection of LINE entities.
+    status("Fitting precise circles from scanned geometry...");
+    const circular=recognizeCircles(paths,{enabled:$("recognizeCircles").checked});
+    status("Straightening reliable linework...");
+    const corrected=$("straightenLines").checked?straightenPaths(circular.paths,{
       maxDeviation:2.5,maxRelativeDeviation:.035,orthogonal:$("snapOrthogonal").checked
-    }):{paths,stats:{straightened:0,preserved:paths.length}};
-    // Hatch recognition comes before dashed-line recognition, so patterned
-    // sectional fill strokes do not become thousands of individual CAD lines.
-    status("Checking closed boundaries for CAD hatch patterns...");
-    const hatchResult=detectHatches(corrected.paths,{enabled:$("detectHatches").checked});
-    status("Classifying continuous and dashed linework on "+s.name+"...");
-    const recognized=recognizeLineTypes(hatchResult.paths,{
-      enabled:$("detectLinetypes").checked,sensitivity:$("lineTypeSensitivity").value
+    }):{paths:circular.paths,stats:{straightened:0,preserved:circular.paths.length}};
+    const repaired=repairNearClosedContours(corrected.paths,{
+      enabled:$("repairContours").checked,maxGap:5
     });
-    s.paths=recognized.solidPaths;s.styledPaths=recognized.styledPaths;
-    s.patternStats=recognized.stats;s.hatches=hatchResult.hatches;
-    s.hatchStats=hatchResult.stats;s.straightStats=corrected.stats;
+    s.sourcePaths=repaired.paths;s.circles=circular.circles;
+    s.circleStats=circular.stats;s.contourStats=repaired.stats;s.straightStats=corrected.stats;
+    s.manualHatchSpecs=[];s.manualHatchResults=[];
+    s.autoHatchEnabled=$("detectHatches").checked;
+    s.autoLinetypeEnabled=$("detectLinetypes").checked;
+    s.autoLinetypeSensitivity=$("lineTypeSensitivity").value;
+    status("Recovering hatch patterns and line styles...");
+    rebuildSheetGeometry(s);
     s.texts=dedupeText(texts);s.width=source.width;s.height=source.height;
     if(previousWidth>0&&s.calibrated)s.scale*=previousWidth/source.width;
     s.watermarkDetected=source.watermarkDetected;s.processingDpi=s.type==="pdf"?dpi:null;
@@ -322,6 +327,27 @@ async function convertSheet(i){
   updateList();
   if(i===state.selected)await selectSheet(i,true);
 }
+function rebuildSheetGeometry(sheet){
+  if(!Array.isArray(sheet.sourcePaths))return;
+  // Manual repairs are applied to source linework; the remaining regions can
+  // still be classified automatically. Never re-rasterize the PDF here.
+  const manual=applyManualHatches(sheet.sourcePaths,sheet.manualHatchSpecs||[]);
+  const auto=detectHatches(manual.paths,{
+    enabled:sheet.autoHatchEnabled!==false,
+    excludedRegions:(sheet.manualHatchSpecs||[]).map(item=>item.boundary)
+  });
+  const styles=recognizeLineTypes(auto.paths,{
+    enabled:sheet.autoLinetypeEnabled!==false,
+    sensitivity:sheet.autoLinetypeSensitivity||"balanced"
+  });
+  sheet.paths=styles.solidPaths;
+  sheet.styledPaths=styles.styledPaths;
+  sheet.patternStats=styles.stats;
+  sheet.manualHatchResults=manual.results;
+  sheet.hatches=[...manual.hatches,...auto.hatches];
+  sheet.hatchStats={...auto.stats,manualHatches:manual.hatches.length,
+    manualRemovedStrokes:manual.results.reduce((sum,r)=>sum+(r.removed||0),0)};
+}
 function applySheetSettings(){
   const sheet=state.sheets[state.selected];if(!sheet)return;
   $("scale").value=sheet.scale;$("units").value=sheet.units;
@@ -331,7 +357,8 @@ function applySheetSettings(){
 }
 async function selectSheet(i,force=false){
   if(i<0||i>=state.sheets.length)return;
-  state.selected=i;state.calibration=null;state.cropping=null;
+  state.selected=i;state.calibration=null;state.cropping=null;state.hatchEditing=null;
+  $("drawHatch").textContent="Draw hatch boundary";$("finishHatch").disabled=true;$("undoHatchVertex").disabled=true;
   $("calibrate").textContent="Pick two points";$("crop").textContent="Select drawing area";
   const s=state.sheets[i];applySheetSettings();updateList();$("previewTitle").textContent=s.name;
   viewport.setTool("pan");
@@ -354,13 +381,20 @@ function updateStats(){
     (s.tilesProcessed?" · "+s.tilesProcessed+" tiles":"")+
     (s.processingDpi?" · "+s.processingDpi+" DPI":"")+
     (s.styledPaths?.length?" · "+s.styledPaths.length+" reconstructed dash runs":"")+
+    (s.circles?.length?" · "+s.circles.length+" CAD circles":"")+
     (s.warning?" · "+s.warning:"");
   $("geometryStats").textContent=s.status==="done"?
-    ((s.straightStats?.straightened||0)+" lines straightened · "+
+    ((s.circles?.length||0)+" circles · "+
+     (s.straightStats?.straightened||0)+" lines straightened · "+
      (s.hatches?.length||0)+" native hatches · "+
-     (s.hatchStats?.removedStrokes||0)+" hatch strokes replaced"+
+     ((s.hatchStats?.removedStrokes||0)+(s.hatchStats?.manualRemovedStrokes||0))+" hatch strokes replaced"+
+     (s.contourStats?.repaired?" · "+s.contourStats.repaired+" border gaps closed":"")+
      (s.hatchStats?.skippedNoBoundary?" · no closed hatch boundaries found":"")):
     "Convert a drawing to review straightening and hatch recognition.";
+  $("removeLastHatch").disabled=state.busy||!s.manualHatchSpecs?.length;
+  $("hatchRepairHint").textContent=s.status==="done"?
+    ((s.manualHatchSpecs?.length||0)+" manual hatch boundaries. Select Review & scale → Draw hatch boundary to repair a missed region."):
+    "Convert this sheet before drawing a manual hatch boundary.";
   const styleCounts={DASHED:0,HIDDEN:0};
   for(const item of s.styledPaths||[])styleCounts[effectiveLineType(item,s.lineTypeOverride)]++;
   $("linetypeStats").textContent=s.status==="done"?
@@ -492,7 +526,7 @@ function setView(view){
 }
 function makeDxf(s){
   if(s.status!=="done")throw Error("Sheet must be converted first");
-  return buildDxf({width:s.width,height:s.height,paths:s.paths,
+  return buildDxf({width:s.width,height:s.height,paths:s.paths,circles:s.circles||[],
     hatches:s.hatches||[],hatchLayer:s.hatchLayer||"HATCH-REVIEW",styledPaths:s.styledPaths||[],
     lineTypeOverride:s.lineTypeOverride||"auto",texts:s.texts,
     unitsPerPixel:s.scale,units:s.units,geometryLayer:s.geometryLayer,textLayer:s.textLayer});
@@ -524,7 +558,10 @@ async function exportZip(){
         pageRelativeCoordinates:true,processingDpi:s.processingDpi,tilesProcessed:s.tilesProcessed,
         linetypes:output.lineTypeCounts,linetypePatterns:output.linePatterns,
         patternRecognition:s.patternStats||null,linetypeOverride:s.lineTypeOverride,
-        hatches:output.hatchCount,hatchLayer:output.hatchLayer,
+        hatches:output.hatchCount,solidHatches:output.solidHatchCount,
+        crossHatches:output.crossHatchCount,circles:output.circleCount,
+        circleRecognition:s.circleStats||null,boundaryRepair:s.contourStats||null,
+        manualHatchResults:s.manualHatchResults||[],hatchLayer:output.hatchLayer,
         hatchRecognition:s.hatchStats||null,straightening:s.straightStats||null,
         drawingArea:s.roi,watermarkDetected:s.watermarkDetected,
         warning:s.warning||"Manual QA required"});
@@ -591,7 +628,7 @@ $("lineTypeOverride").addEventListener("change",()=>{
   updateStats();drawVectors();
   status("Line style override set to "+sheet.lineTypeOverride+". Review the DXF preview before export.");
 });
-for(const id of ["detectLinetypes","lineTypeSensitivity","straightenLines","snapOrthogonal","detectHatches"]){
+for(const id of ["detectLinetypes","lineTypeSensitivity","straightenLines","snapOrthogonal","detectHatches","recognizeCircles","repairContours"]){
   $(id).addEventListener("change",()=>{
     if(state.sheets[state.selected]?.status==="done")status("Line detection setting changed. Convert the selected sheet again to apply.");
   });
@@ -610,7 +647,8 @@ $("calibrate").addEventListener("click",()=>{
 });
 function invalidateConversion(s){
   if(s.status==="done"||s.status==="error"){
-    s.status="pending";s.paths=[];s.hatches=[];s.hatchStats=null;s.straightStats=null;
+    s.status="pending";s.paths=[];s.sourcePaths=[];s.circles=[];s.circleStats=null;s.contourStats=null;
+    s.manualHatchSpecs=[];s.manualHatchResults=[];s.hatches=[];s.hatchStats=null;s.straightStats=null;
     s.styledPaths=[];s.patternStats=null;s.texts=[];
     s.warning="Drawing area changed; reconvert this sheet.";
     s.tilesProcessed=0;s.processingDpi=null;updateList();
