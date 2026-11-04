@@ -17,6 +17,8 @@ jobs:
           node --check src/geometry.js
           node --check src/straightening.js
           node --check src/hatch.js
+          node --check src/hatch-repair.js
+          node --check src/circles.js
           node --check src/linetype.js
           node --check src/tile-engine.js
           node --check src/viewport.js
