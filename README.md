@@ -37,6 +37,26 @@ The browser conversion pipeline now processes **overlapping 1024px raster tiles*
 7. Convert one sheet, review original/overlay/vectors, then calibrate with a known measurement.
 8. Confirm a **second independent dimension**. Set geometry and annotation layers, export DXF, and inspect it in AutoCAD/Civil 3D.
 
+## v0.5: True HATCH export and geometric straightening
+
+**New conversion order:** tiled raster tracing → conservative best-fit line straightening → enclosed hatch recognition → dashed/hidden linetype recognition → layered DXF export.
+
+### Lines straightened, curves preserved
+
+- The **Convert** tab now enables **Keep straight lines straight** by default. It fits a principal-component regression line to the points in each nontrivial traced path, replacing near-collinear pixel wobble with two clean endpoints when maximum deviation and backtracking tests pass.
+- **Snap nearly horizontal / vertical** is an optional, disabled-by-default setting. It only snaps within 1.25° of an axis. It does not force arbitrary engineering diagonals to 0° or 90°.
+- True curves, corners, stepped features and paths outside the tolerance are retained as polylines rather than silently straightened. Existing two-point line entities remain untouched.
+
+### Hatches become native DXF HATCH entities
+
+- **Recognize enclosed hatches** is enabled by default. For v0.5, the recognizer requires an existing *closed boundary loop* containing a regular, repeated **single-angle diagonal hatch family**.
+- A candidate must have at least seven matching strokes, consistent angle/spacing, substantial coverage of the boundary, and endpoints close to the detected border. It does not guess a boundary when none exists.
+- Accepted strokes are removed from the residual LINE/LWPOLYLINE list and replaced by **one native DXF HATCH**. The pattern angle and spacing come from the source scan, transformed to calibrated drawing units, and the hatch is placed on a separate user-editable **HATCH-REVIEW** layer.
+- The **Vectors only** and **Overlay** views render the reconstructed hatch with an outlined boundary. The properties inspector counts the straightened segments, reconstructed hatches and hatch strokes replaced.
+- Batch ZIP QA manifests include hatch recognition statistics and straightening diagnostics.
+
+**Known limitations and QA:** This is a conservative proof of concept, not full material recognition. It does **not** yet detect every closed boundary on heavily scanned or interconnected linework, reconstruct missing boundaries, recognize ANSI/material patterns or crosshatches, reconstruct curves as arcs, or provide associative CAD hatches. The generated HATCH is non-associative (the boundary is embedded in the entity). Where confidence is insufficient, the original raster-derived linework is retained rather than replaced with an invented hatch. Review every detected hatch boundary, pattern and dimension in AutoCAD or Civil 3D before relying on it.
+
 ## v0.4: Compact ribbon and native DXF linetype recognition
 
 The ribbon now uses compact 31–34px buttons, smaller tab labels, shorter groups, and less explanatory text. Drawing controls remain organized into **Home, Convert, Review & scale, Layers, Export**. The center viewport remains full-height for pan/zoom/point calibration.
