@@ -18,7 +18,7 @@ function makeLinetype(name,dash,gap){
     pair(72,65)+pair(73,2)+pair(40,number(positive+negative))+
     pair(49,number(positive))+pair(74,0)+pair(49,number(-negative))+pair(74,0);
 }
-export function buildDxf({width,height,paths=[],hatches=[],hatchLayer="HATCH-REVIEW",styledPaths=[],lineTypeOverride="auto",
+export function buildDxf({width,height,paths=[],circles=[],hatches=[],hatchLayer="HATCH-REVIEW",styledPaths=[],lineTypeOverride="auto",
   texts=[],unitsPerPixel=1,geometryLayer="VEC-POLYLINES",
   textLayer="ANNO-TEXT",units="unitless",originX=0,originY=0}){
   if(!Number.isFinite(unitsPerPixel)||unitsPerPixel<=0)throw Error("Invalid calibration scale");
@@ -74,31 +74,56 @@ export function buildDxf({width,height,paths=[],hatches=[],hatchLayer="HATCH-REV
     if(!styles[type])continue;
     if(addPath(item.points,type)){geometryCount.styled++;counts[type]++;}
   }
-  // Native non-associative HATCH: one real boundary loop with the scanned line
-  // family encoded as a regular user-defined pattern. No source hatch strokes
-  // are exported separately when they were consumed by the hatch recognizer.
-  let hatchCount=0;
+  // Geometrically fitted circles are true editable CIRCLE objects, not a
+  // circle-shaped collection of LINE and LWPOLYLINE segments.
+  let circleCount=0;
+  for(const circle of circles){
+    if(!Array.isArray(circle?.center)||circle.center.length<2)continue;
+    if(!Number.isFinite(circle.radius)||circle.radius<=0)continue;
+    const center=map(circle.center),radius=circle.radius*unitsPerPixel;
+    if(!center.every(Number.isFinite)||!Number.isFinite(radius))continue;
+    d+=pair(0,"CIRCLE")+pair(100,"AcDbEntity")+pair(8,geometry)+
+      pair(100,"AcDbCircle")+coords(center[0],center[1])+
+      pair(30,0)+pair(40,number(radius));
+    circleCount++;
+  }
+  // Native non-associative HATCH supports SOLID, diagonal and dual-angle
+  // patterns. The scanned pattern is measured in source pixels and expressed
+  // in calibrated CAD model units.
+  let hatchCount=0,solidHatchCount=0,crossHatchCount=0;
   for(const hatch of hatches){
     if(!Array.isArray(hatch?.boundary)||hatch.boundary.length<3)continue;
     const vertices=hatch.boundary.map(map);
     if(vertices.some(p=>!p.every(Number.isFinite)))continue;
-    const spacing=hatch.spacingPx*unitsPerPixel;
-    const angleRad=-(hatch.angleDegrees||0)*Math.PI/180;
-    if(!Number.isFinite(spacing)||spacing<=0||!Number.isFinite(angleRad))continue;
-    const origin=map(hatch.origin||hatch.boundary[0]);
-    const deltaX=-Math.sin(angleRad)*spacing,deltaY=Math.cos(angleRad)*spacing;
+    const solid=Boolean(hatch.solid);
+    const patternLines=solid?[]:Array.isArray(hatch.patterns)&&hatch.patterns.length?
+      hatch.patterns:[{angleDegrees:hatch.angleDegrees,spacingPx:hatch.spacingPx,
+        origin:hatch.origin||hatch.boundary[0]}];
+    if(!solid&&patternLines.some(p=>!Number.isFinite(p.angleDegrees)||
+      !Number.isFinite(p.spacingPx)||p.spacingPx<=0))continue;
+    const name=solid?"SOLID":patternLines.length>1?"AV_CROSS":"AV_SCAN";
     d+=pair(0,"HATCH")+pair(100,"AcDbEntity")+pair(8,hatched)+
       pair(100,"AcDbHatch")+pair(10,0)+pair(20,0)+pair(30,0)+
       pair(210,0)+pair(220,0)+pair(230,1)+
-      pair(2,"AV_SCAN")+pair(70,0)+pair(71,0)+pair(91,1)+
+      pair(2,name)+pair(70,solid?1:0)+pair(71,0)+pair(91,1)+
       pair(92,3)+pair(72,0)+pair(73,1)+pair(93,vertices.length);
     for(const p of vertices)d+=coords(p[0],p[1]);
-    d+=pair(97,0)+pair(75,0)+pair(76,0)+pair(52,0)+pair(41,1)+
-      pair(77,0)+pair(78,1)+pair(53,number(angleRad*180/Math.PI))+
-      pair(43,number(origin[0]))+pair(44,number(origin[1]))+
-      pair(45,number(deltaX))+pair(46,number(deltaY))+pair(79,0)+
-      pair(98,0);
-    hatchCount++;
+    d+=pair(97,0)+pair(75,0)+pair(76,0);
+    if(!solid){
+      d+=pair(52,0)+pair(41,1)+pair(77,0)+pair(78,patternLines.length);
+      for(const pattern of patternLines){
+        const angleRad=-pattern.angleDegrees*Math.PI/180;
+        const spacing=pattern.spacingPx*unitsPerPixel;
+        const origin=map(pattern.origin||hatch.boundary[0]);
+        const deltaX=-Math.sin(angleRad)*spacing,deltaY=Math.cos(angleRad)*spacing;
+        d+=pair(53,number(angleRad*180/Math.PI))+
+          pair(43,number(origin[0]))+pair(44,number(origin[1]))+
+          pair(45,number(deltaX))+pair(46,number(deltaY))+pair(79,0);
+      }
+    }
+    d+=pair(98,0);hatchCount++;
+    if(solid)solidHatchCount++;
+    if(patternLines.length>1)crossHatchCount++;
   }
   for(const item of texts){
     const txt=clean(item.value).slice(0,240);if(!txt)continue;
@@ -109,7 +134,7 @@ export function buildDxf({width,height,paths=[],hatches=[],hatchLayer="HATCH-REV
     textCount++;
   }
   d+=pair(0,"ENDSEC")+pair(0,"EOF");
-  return {content:d,geometryCount:geometryCount.solid+geometryCount.styled,textCount,
+  return {content:d,geometryCount:geometryCount.solid+geometryCount.styled+circleCount,textCount,circleCount,
     styledCount:geometryCount.styled,lineTypes:Object.keys(styles),lineTypeCounts:counts,
-    linePatterns,hatchCount,hatchLayer:hatched,layers:names,insunits};
+    linePatterns,hatchCount,solidHatchCount,crossHatchCount,hatchLayer:hatched,layers:names,insunits};
 }
