@@ -1,10 +1,15 @@
 import {buildDxf,filenameBase} from "./dxf.js";
+import {createDrawingViewport} from "./viewport.js";
 import {planTiles,normalizeRoi,clipToTileAndRoi,isEditorWatermark,looksLikeEditorUrl,overlaps,dedupeText} from "./tile-engine.js";
 
 const $=id=>document.getElementById(id);
 const state={sheets:[],selected:-1,busy:false,view:"overlay",calibration:null,pdfjs:null,ocrWorker:null,worker:null,
   token:0,workerId:0,pending:new Map(),cropping:null};
 const MAX_SHEETS=50,MAX_RENDER_PIXELS=3200000;
+const viewport=createDrawingViewport({
+  wrapper:$("canvaswrap"),stage:$("stage"),readout:$("zoomReadout"),
+  crosshair:$("crosshair"),hint:$("viewHint"),onPick:handleViewportPick,onCancel:cancelSelection
+});
 const presets={
   generic:["VEC-POLYLINES","ANNO-TEXT"],civil:["C-UNCLASSIFIED","C-ANNO"],
   architecture:["A-UNCLASSIFIED","A-ANNO"],structure:["S-UNCLASSIFIED","S-ANNO"],
@@ -28,14 +33,14 @@ function refreshButtons(){
 }
 function updateList(){
   const host=$("sheetList");host.replaceChildren();
-  if(!state.sheets.length){const empty=document.createElement("div");empty.className="empty";
-    empty.style.minHeight="110px";empty.textContent="No files loaded";host.append(empty);refreshButtons();return;}
+  if(!state.sheets.length){const empty=document.createElement("span");empty.className="no-sheets";
+    empty.textContent="No files loaded. Use Add drawings in the Home ribbon.";host.append(empty);refreshButtons();return;}
   for(let i=0;i<state.sheets.length;i++){
     const s=state.sheets[i],btn=document.createElement("button");btn.type="button";
     btn.className="sheet"+(i===state.selected?" active":"");
-    const left=document.createElement("span");left.className="sheetname";left.textContent=s.name;
+    const left=document.createElement("span");left.className="sheetname";left.textContent=s.name;left.title=s.name;
     const meta=document.createElement("span");meta.className="sheetmeta";meta.textContent=s.type==="pdf"?"PDF":"IMAGE";
-    const pill=document.createElement("span");pill.className="chip "+(s.status==="done"?"done":s.status==="error"?"error":"");
+    const pill=document.createElement("span");pill.className="chip "+(s.status==="done"?"done":s.status==="error"?"error":s.status==="running"?"running":"");
     pill.textContent=s.status==="done"?"Converted":s.status==="running"?"Processing":s.status==="error"?"Error":"Pending";
     btn.append(left,meta,pill);btn.addEventListener("click",()=>selectSheet(i));host.append(btn);
   }
@@ -307,6 +312,7 @@ async function selectSheet(i,force=false){
   state.selected=i;state.calibration=null;state.cropping=null;
   $("canvaswrap").classList.remove("calibrating");$("calibrate").textContent="Select 2 points";$("crop").textContent="Select drawing area";
   const s=state.sheets[i];applySheetSettings();updateList();$("previewTitle").textContent=s.name;
+  viewport.setTool("pan");
   const token=++state.token;
   if(!force&&s.previewToken===token)return;
   try{
@@ -314,12 +320,9 @@ async function selectSheet(i,force=false){
     const original=$("imageCanvas"),vectors=$("vectorCanvas");
     original.width=vectors.width=canvas.width;original.height=vectors.height=canvas.height;
     original.getContext("2d").drawImage(canvas,0,0);
-    const box=$("canvaswrap"),stage=$("stage");
-    const maxWidth=Math.max(230,box.clientWidth-44),displayWidth=Math.min(canvas.width,maxWidth);
-    stage.style.width=displayWidth+"px";stage.style.height=(displayWidth*canvas.height/canvas.width)+"px";
-    original.style.width=vectors.style.width="100%";
-    original.style.height=vectors.style.height="100%";
-    stage.hidden=false;$("empty").hidden=true;
+    if(!s.width||!s.height){s.width=canvas.width;s.height=canvas.height;}
+    $("stage").hidden=false;$("empty").hidden=true;
+    viewport.setDrawing(canvas.width,canvas.height);
     drawVectors();updateStats();
   }catch(e){if(token===state.token)status("Preview error: "+(e?.message||e));}
 }
@@ -329,6 +332,8 @@ function updateStats(){
     (s.tilesProcessed?" · "+s.tilesProcessed+" tiles":"")+
     (s.processingDpi?" · "+s.processingDpi+" DPI":"")+
     (s.warning?" · "+s.warning:"");
+  const stateText=s.status==="done"?"Converted":s.status==="error"?"Error":s.status==="running"?"Processing":"Not converted";
+  $("inspectorState").textContent=stateText;
   $("cropHint").textContent=s.roi?
     "Drawing area selected. Only that region will be traced. Reconvert after changes.":
     "Optional: choose two opposite corners of the drawing to exclude borders or title blocks.";
@@ -370,11 +375,16 @@ function drawVectors(){
     ctx.lineTo(p[0]*canvas.width,p[1]*canvas.height+10);ctx.stroke();
   }
   const mode=state.view;
-  $("imageCanvas").style.opacity=mode==="vector"?"0":mode==="overlay"?"0.55":"1";
+  $("imageCanvas").style.opacity=mode==="overlay"?"0.47":"1";
+  $("imageCanvas").style.display=mode==="vector"?"none":"block";
   canvas.style.display=mode==="original"?"none":"block";
+  $("stage").classList.toggle("vector-only",mode==="vector");
 }
 function setView(view){
-  state.view=view;document.querySelectorAll("#viewTabs button").forEach(b=>b.classList.toggle("active",b.dataset.view===view));drawVectors();
+  state.view=view;document.querySelectorAll("#viewTabs button").forEach(b=>{
+    const active=b.dataset.view===view;b.classList.toggle("active",active);
+    b.setAttribute("aria-pressed",String(active));
+  });drawVectors();
 }
 function makeDxf(s){
   if(s.status!=="done")throw Error("Sheet must be converted first");
@@ -451,7 +461,8 @@ $("exportSelected").addEventListener("click",exportSelected);
 $("exportZip").addEventListener("click",exportZip);
 $("clear").addEventListener("click",()=>{
   if(state.busy)return;state.sheets=[];state.selected=-1;state.token++;state.calibration=null;
-  $("stage").hidden=true;$("empty").hidden=false;$("previewTitle").textContent="Drawing preview";
+  $("stage").hidden=true;$("empty").hidden=false;$("previewTitle").textContent="No drawing selected";
+  viewport.reset();$("inspectorState").textContent="No sheet";
   $("previewStats").textContent="No sheet selected";$("progress").style.width="0";status("Files cleared from this page.");
   updateList();
 });
