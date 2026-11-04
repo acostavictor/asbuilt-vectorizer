@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Convert PDF and image as-built drawings to editable layered DXF, locally in your browser.">
+  <title>AsBuilt Vectorizer | Local PDF to DXF</title>
+  <style>
+    :root{color-scheme:light;--navy:#0b203a;--blue:#205fd3;--ink:#172a45;--muted:#6b7b90;--line:#dfe7f0;--bg:#f5f8fc;--card:#fff;--teal:#12a99b}
+    *{box-sizing:border-box}body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;margin:0;background:var(--bg);color:var(--ink)}button,input,select{font:inherit}
+    header{padding:20px max(24px,calc((100vw - 1480px)/2));display:flex;justify-content:space-between;align-items:center;background:var(--navy);color:white;gap:18px}
+    .brand{display:flex;gap:12px;align-items:center;font-size:20px;font-weight:750;letter-spacing:-.5px}.brandmark{height:38px;width:38px;display:grid;place-items:center;border:1px solid #51bccc;border-radius:11px;color:#b4faf2;font-weight:800;background:#163b56}.brand span small{display:block;font-size:10px;letter-spacing:2.3px;text-transform:uppercase;color:#a2bad0;font-weight:600}
+    .top-actions{display:flex;align-items:center;gap:12px;font-size:12px;color:#acc7dc}.private{background:#173e4d;border:1px solid #27736e;color:#b6f3db;border-radius:99px;padding:8px 12px;white-space:nowrap}
+    .intro{max-width:1480px;margin:0 auto;padding:25px 24px 17px;display:flex;gap:14px;justify-content:space-between;align-items:end}
+    h1{font-size:25px;letter-spacing:-.7px;margin:0 0 4px}h2{font-size:15px;margin:0 0 14px}p{margin:0}.lead{font-size:13px;color:var(--muted)}.subtle{color:var(--muted);font-size:12px}.hint{color:var(--muted);font-size:11px;line-height:1.5}
+    .workspace{max-width:1480px;margin:0 auto;padding:0 24px 32px;display:grid;grid-template-columns:310px minmax(0,1fr);gap:18px;align-items:start}
+    .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 5px 18px #21345108}.sidebar{padding:19px;display:grid;gap:19px}.divider{height:1px;background:var(--line)}
+    .drop{border:1.5px dashed #9eb8d8;border-radius:12px;background:#f7fbff;text-align:center;padding:21px 12px;cursor:pointer;transition:.15s}
+    .drop.drag{background:#e6f2ff;border-color:var(--blue)}.drop strong{display:block;font-size:13px;margin:7px 0 4px}.drop span{font-size:11px;color:var(--muted)}.drop .glyph{font-size:24px;color:var(--blue)}.drop input{display:none}
+    .field{margin:0 0 10px}.field label{display:block;font-weight:650;font-size:11px;margin-bottom:5px}.field input,.field select{width:100%;border:1px solid #cfdcea;background:white;border-radius:8px;padding:9px 10px;outline-offset:2px;font-size:12px;color:var(--ink)}.field input:focus,.field select:focus{border-color:var(--blue)}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:9px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+    .switch{display:flex;align-items:center;gap:8px;font-size:12px;margin:8px 0}.switch input{accent-color:var(--blue);width:16px;height:16px}
+    .button{border:1px solid #cbd8ea;border-radius:9px;background:white;color:var(--ink);padding:10px 13px;cursor:pointer;font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap}.button:hover:not(:disabled){border-color:var(--blue);background:#f3f8ff}.button.primary{color:white;background:var(--blue);border-color:var(--blue)}.button.primary:hover:not(:disabled){background:#194da7}.button:disabled{opacity:.42;cursor:not-allowed}.button.full{width:100%}.buttons{display:flex;gap:8px;flex-wrap:wrap}.buttons>*{flex:1}
+    .main{display:grid;gap:14px}.toolbar{padding:16px 18px;display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}.toolbar strong{font-size:14px}.toolbar small{display:block;color:var(--muted);font-size:11px;margin-top:3px}
+    .previewpanel{overflow:hidden}.canvasbar{padding:11px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.tabs{display:flex;gap:4px;padding:3px;border:1px solid var(--line);border-radius:8px;background:#f1f5f9}.tabs button{border:0;background:transparent;padding:7px 10px;font-size:11px;font-weight:600;color:#55708b;border-radius:5px;cursor:pointer}.tabs button.active{color:#144ec1;background:white;box-shadow:0 1px 5px #1a345221}
+    .canvaswrap{height:500px;background:#e9eef6;overflow:auto;display:flex;align-items:center;justify-content:center;position:relative;padding:20px}.stage{position:relative;flex:none;background:white;box-shadow:0 8px 25px #27405a22}.stage canvas{display:block;max-width:none}.stage #vectorCanvas{position:absolute;inset:0;pointer-events:none}.canvaswrap.calibrating .stage{cursor:crosshair}.empty{display:grid;place-items:center;gap:7px;text-align:center;color:#7d90a6;min-height:300px}.empty .big{font-size:42px;color:#94aeca}
+    .statusrow{border-top:1px solid var(--line);padding:11px 16px;display:flex;justify-content:space-between;font-size:11px;color:var(--muted);gap:10px;flex-wrap:wrap}
+    .filelist{overflow:hidden}.listhead{padding:14px 17px;display:flex;justify-content:space-between;align-items:center}.listhead strong{font-size:13px}.listbody{max-height:245px;overflow:auto}.sheet{width:100%;display:flex;gap:10px;align-items:center;border:0;border-top:1px solid #edf1f6;text-align:left;background:#fff;padding:12px 16px;cursor:pointer}.sheet:hover{background:#f6faff}.sheet.active{background:#edf5ff;border-left:3px solid var(--blue);padding-left:13px}.sheet .sheetname{flex:1;min-width:0;font-size:12px;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sheet .sheetmeta{font-size:10px;color:var(--muted)}.chip{font-size:10px;border-radius:7px;padding:4px 7px;background:#f1f3f7;color:#6b7b90;white-space:nowrap}.chip.done{background:#e0f7ed;color:#077653}.chip.error{background:#ffeded;color:#a92d2d}
+    .foot{max-width:1480px;margin:auto;padding:2px 24px 24px;color:#7b8ca1;font-size:11px;line-height:1.6}.warning{background:#fff8e8;border:1px solid #f5dda7;color:#785a16;border-radius:10px;padding:10px 12px;font-size:11px;line-height:1.55}.progress{height:5px;background:#e9eef8;border-radius:99px;overflow:hidden;margin-top:9px}.progress i{display:block;width:0;height:100%;background:var(--teal);transition:width .2s}
+    @media(max-width:930px){.workspace{grid-template-columns:1fr}.sidebar{grid-template-columns:1fr 1fr;gap:20px}.sidebar .divider{display:none}.canvaswrap{height:390px}}@media(max-width:650px){.intro{display:block}.workspace{padding:0 12px 20px}.sidebar{grid-template-columns:1fr}header{padding:15px}.top-actions>span:not(.private){display:none}.canvaswrap{height:310px}.toolbar{padding:13px}.intro{padding:22px 15px 14px}.brand{font-size:17px}}
+  </style>
+</head>
+<body>
+<header>
+  <div class="brand"><div class="brandmark">AV</div><span>AsBuilt Vectorizer<small>Browser processing studio</small></span></div>
+  <div class="top-actions"><span>Prototype v0.1</span><span class="private">◈ &nbsp;Files stay on your device</span></div>
+</header>
+<div class="intro">
+  <div><h1>From scanned drawings to editable CAD.</h1><p class="lead">Import up to 50 PDF/image sheets, extract centerlines and printed text, review, then export layered DXFs.</p></div>
+  <div class="subtle">Local raster tracing · OCR · DXF</div>
+</div>
+<main class="workspace">
+  <aside class="panel sidebar">
+    <section><h2>01 &nbsp;Import drawings</h2>
+      <label class="drop" id="drop"><span class="glyph">↥</span><strong>Choose PDF or image files</strong><span>Drag and drop here · PDF, PNG, JPG · up to 50 sheets</span><input type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" multiple id="files"></label>
+      <p class="hint" style="margin-top:8px">Multi-page PDFs are split into individual sheets. Password-protected files are not supported.</p>
+    </section>
+    <div class="divider"></div>
+    <section><h2>02 &nbsp;Conversion controls</h2>
+      <div class="grid2">
+        <div class="field"><label for="threshold">Threshold</label><select id="threshold"><option value="auto">Automatic</option><option value="150">Light · 150</option><option value="185">Medium · 185</option><option value="215">Dark · 215</option></select></div>
+        <div class="field"><label for="minLength">Min. line (px)</label><input id="minLength" type="number" min="4" max="250" value="17"></div>
+      </div>
+      <div class="field"><label for="epsilon">Line smoothing (px)</label><input id="epsilon" type="number" min="0.2" max="10" step="0.2" value="1.6"></div>
+      <label class="switch"><input type="checkbox" id="ocr">OCR printed annotations (slower)</label>
+      <p class="hint">Experimental centerline tracing. Text masks are removed from traced pixels when OCR is enabled.</p>
+    </section>
+    <div class="divider"></div>
+    <section><h2>03 &nbsp;Output layers</h2>
+      <div class="field"><label for="preset">Layer preset</label><select id="preset"><option value="generic">Generic engineering</option><option value="civil">Civil</option><option value="architecture">Architectural</option><option value="structure">Structural</option><option value="mep">Mechanical / Electrical</option></select></div>
+      <div class="field"><label for="geometryLayer">Geometry layer (per selected sheet)</label><input id="geometryLayer" value="VEC-POLYLINES" maxlength="120"></div>
+      <div class="field"><label for="textLayer">Text layer (per selected sheet)</label><input id="textLayer" value="ANNO-TEXT" maxlength="120"></div>
+      <p class="hint">This prototype does not automatically identify walls, pipes or structural objects. Set layers after review.</p>
+    </section>
+    <div class="divider"></div>
+    <section><h2>04 &nbsp;Scale calibration</h2>
+      <div class="field"><label for="units">DXF drawing units</label><select id="units"><option value="unitless">Unitless</option><option value="feet">Feet</option><option value="inches">Inches</option><option value="millimeters">Millimeters</option><option value="meters">Meters</option><option value="centimeters">Centimeters</option></select></div>
+      <div class="field"><label for="scale">Drawing units / processed pixel</label><input type="number" min="0.00000001" step="any" id="scale" value="1"></div>
+      <div class="grid2"><div class="field"><label for="distance">Known distance</label><input type="number" id="distance" min=".00001" step="any" placeholder="e.g. 100"></div><div class="field"><label>Choose endpoints</label><button id="calibrate" class="button full" type="button">Select 2 points</button></div></div>
+      <p class="hint" id="calibrationHint">Default is uncalibrated. A known distance between two clicked points sets each sheet's scale.</p>
+    </section>
+    <div class="warning">Engineering QA required. Tracing can distort dimensions, text and curved objects. Exported drawings are not georeferenced or design-certified.</div>
+  </aside>
+  <div class="main">
+    <section class="panel toolbar">
+      <div><strong>Conversion workspace</strong><small id="jobStatus">Add drawings to start. No files are uploaded.</small><div class="progress"><i id="progress"></i></div></div>
+      <div class="buttons"><button class="button" id="processSelected" disabled>Convert selected</button><button class="button primary" id="processAll" disabled>Convert all</button><button class="button" id="exportSelected" disabled>Download DXF</button><button class="button" id="exportZip" disabled>Download ZIP</button></div>
+    </section>
+    <section class="panel previewpanel">
+      <div class="canvasbar"><strong id="previewTitle">Drawing preview</strong><div class="tabs" id="viewTabs"><button data-view="overlay" class="active">Overlay</button><button data-view="original">Original</button><button data-view="vector">Vectors</button></div></div>
+      <div class="canvaswrap" id="canvaswrap"><div class="empty" id="empty"><div class="big">▱</div><b>Your drawing will appear here</b><span>Import PDF or image files to preview and trace.</span></div><div class="stage" id="stage" hidden><canvas id="imageCanvas"></canvas><canvas id="vectorCanvas"></canvas></div></div>
+      <div class="statusrow"><span id="previewStats">No sheet selected</span><span id="coordinateStatus">Uncalibrated · page-relative coordinates</span></div>
+    </section>
+    <section class="panel filelist"><div class="listhead"><strong>Drawing sheets <span id="sheetCount" class="subtle">(0/50)</span></strong><button class="button" id="clear" disabled>Clear</button></div><div class="listbody" id="sheetList"><div class="empty" style="min-height:110px;font-size:12px">No files loaded</div></div></section>
+  </div>
+</main>
+<footer class="foot">AsBuilt Vectorizer prototype. Processing occurs in this browser. Third-party scripts and OCR language files are downloaded as needed. No server-side file conversion or DWG export. Always compare against original as-builts and confirm independent dimensions.</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/6.0.1/tesseract.min.js" crossorigin="anonymous"></script>
+<script type="module" src="./src/app.js"></script>
+</body></html>
