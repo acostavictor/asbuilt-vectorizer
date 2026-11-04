@@ -1,1 +1,14 @@
-{"name":"asbuilt-vectorizer","version":"0.1.0","private":true,"type":"module","description":"Browser-local PDF/image to DXF prototype","scripts":{"test":"node --test tests/*.test.js","start":"python3 -m http.server 8080"},"engines":{"node":">=20"}}
+{
+  "name": "asbuilt-vectorizer",
+  "version": "0.4.0",
+  "private": true,
+  "type": "module",
+  "description": "Client-side scanned PDF to DXF converter with CAD linetype recognition prototype",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "start": "python3 -m http.server 8080"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
