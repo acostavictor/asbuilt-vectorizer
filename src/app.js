@@ -24,6 +24,7 @@ const escapeName=name=>String(name).replace(/\.[^.]+$/,"");
 function status(message){$("jobStatus").textContent=message;}
 function busy(value){
   state.busy=value;
+  if(value&&state.hatchEditing){cancelHatchDrawing();viewport.setTool("pan");}
   ["processSelected","processAll","exportSelected","exportZip","clear"].forEach(id=>$(id).disabled=value);
   refreshButtons();
 }
@@ -360,6 +361,7 @@ async function selectSheet(i,force=false){
   state.selected=i;state.calibration=null;state.cropping=null;state.hatchEditing=null;
   $("drawHatch").textContent="Draw hatch boundary";$("finishHatch").disabled=true;$("undoHatchVertex").disabled=true;
   $("calibrate").textContent="Pick two points";$("crop").textContent="Select drawing area";
+  cancelHatchDrawing();
   const s=state.sheets[i];applySheetSettings();updateList();$("previewTitle").textContent=s.name;
   viewport.setTool("pan");
   const token=++state.token;
@@ -638,6 +640,7 @@ $("exportZip").addEventListener("click",exportZip);
 $("clear").addEventListener("click",()=>{
   if(state.busy)return;state.sheets=[];state.selected=-1;state.token++;state.calibration=null;
   $("stage").hidden=true;$("empty").hidden=false;$("previewTitle").textContent="No drawing selected";
+  cancelHatchDrawing();
   viewport.reset();$("inspectorState").textContent="No sheet";
   $("previewStats").textContent="No sheet selected";$("progress").style.width="0";status("Files cleared from this page.");
   updateList();
@@ -673,6 +676,69 @@ $("calibrate").addEventListener("click",()=>{
   setView("overlay");viewport.setTool("calibrate");$("calibrate").textContent="Pick first point";
   status("Calibration: zoom into the first endpoint, then click the exact point. Hold Space to pan.");
 });
+function cancelHatchDrawing(){
+  state.hatchEditing=null;
+  $("drawHatch").textContent="Draw hatch boundary";
+  $("undoHatchVertex").disabled=true;$("finishHatch").disabled=true;
+}
+function finishManualHatch(){
+  const sheet=state.sheets[state.selected],editing=state.hatchEditing;
+  if(!sheet||sheet.status!=="done"||!editing)return;
+  const points=editing.points;
+  const invalid=validatePolygon(points);
+  if(invalid){status(invalid+" Use Undo point or Esc to cancel.");return;}
+  const spec={boundary:points.map(p=>p.slice()),
+    pattern:$("manualHatchPattern").value,
+    angleDegrees:Number($("manualHatchAngle").value),
+    spacingPx:Number($("manualHatchSpacing").value),
+    removeMatchingStrokes:$("removeHatchStrokes").checked};
+  const attempt=applyManualHatches(sheet.sourcePaths,[...(sheet.manualHatchSpecs||[]),spec]);
+  const latest=attempt.results.at(-1);
+  if(!latest?.ok){
+    status(latest?.error||"Unable to create this hatch region. Check the pattern setting.");
+    return;
+  }
+  sheet.manualHatchSpecs.push(spec);
+  rebuildSheetGeometry(sheet);
+  cancelHatchDrawing();viewport.setTool("pan");
+  drawVectors();updateStats();
+  status("Added native CAD "+spec.pattern+" hatch. "+
+    (latest.removed||0)+" source strokes replaced. Review the boundary and export.");
+}
+$("drawHatch").addEventListener("click",()=>{
+  const sheet=state.sheets[state.selected];
+  if(!sheet||sheet.status!=="done"){status("Convert a drawing first, then select its hatch region.");return;}
+  if(state.hatchEditing){cancelHatchDrawing();viewport.setTool("pan");drawVectors();return;}
+  state.calibration=null;state.cropping=null;
+  setView("overlay");
+  state.hatchEditing={points:[]};
+  viewport.setTool("hatch");
+  $("drawHatch").textContent="Cancel drawing";
+  $("finishHatch").disabled=true;$("undoHatchVertex").disabled=true;
+  status("Click each corner of the hatch boundary. Hold Space to pan and scroll to zoom.");
+});
+$("undoHatchVertex").addEventListener("click",()=>{
+  if(!state.hatchEditing)return;
+  state.hatchEditing.points.pop();
+  const count=state.hatchEditing.points.length;
+  $("finishHatch").disabled=count<3;$("undoHatchVertex").disabled=count===0;
+  drawVectors();
+  status(count+" hatch boundary points selected.");
+});
+$("finishHatch").addEventListener("click",finishManualHatch);
+$("removeLastHatch").addEventListener("click",()=>{
+  const sheet=state.sheets[state.selected];
+  if(!sheet?.manualHatchSpecs?.length)return;
+  sheet.manualHatchSpecs.pop();rebuildSheetGeometry(sheet);
+  drawVectors();updateStats();
+  status("Reverted the most recent manual hatch without reconverting the PDF.");
+});
+window.addEventListener("keydown",e=>{
+  if(e.key!=="Enter"||!state.hatchEditing)return;
+  const target=e.target;
+  if(target instanceof HTMLElement&&(["INPUT","SELECT","TEXTAREA"].includes(target.tagName)||target.isContentEditable))return;
+  e.preventDefault();finishManualHatch();
+});
 function invalidateConversion(s){
   if(s.status==="done"||s.status==="error"){
     s.status="pending";s.paths=[];s.sourcePaths=[];s.circles=[];s.circleStats=null;s.contourStats=null;
@@ -696,12 +762,21 @@ $("clearCrop").addEventListener("click",()=>{
   invalidateConversion(s);drawVectors();updateStats();status("Drawing area cleared. Reconvert for full-sheet output.");
 });
 function cancelSelection(){
-  state.calibration=null;state.cropping=null;
+  state.calibration=null;state.cropping=null;cancelHatchDrawing();
   $("calibrate").textContent="Pick two points";$("crop").textContent="Select drawing area";
   drawVectors();
 }
 function handleViewportPick({nx,ny,tool}){
   const s=state.sheets[state.selected];if(!s)return;
+  if(tool==="hatch"&&state.hatchEditing){
+    state.hatchEditing.points.push([nx*s.width,ny*s.height]);
+    const count=state.hatchEditing.points.length;
+    $("undoHatchVertex").disabled=false;
+    $("finishHatch").disabled=count<3;
+    viewport.setHint("Boundary vertices: "+count+
+      ". Click more corners, then press Finish hatch or Enter. Space + drag pans.");
+    drawVectors();return;
+  }
   if(tool==="crop"&&state.cropping){
     state.cropping.points.push([nx,ny]);
     if(state.cropping.points.length===1){
