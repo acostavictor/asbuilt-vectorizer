@@ -68,3 +68,19 @@ True DWG export, survey georeferencing, CAD curves and Civil 3D intelligent obje
 - Check Undo point, Finish hatch, Undo hatch, Cancel, changing sheets and reconversion.
 - Confirm batch QA manifest includes circle counts, circle reconstruction statistics, manual repair details and hatch-pattern counts.
 - Validate one 150-DPI and one 240-DPI scan in Civil 3D. This app cannot guarantee production-level recognition accuracy.
+
+
+## v0.7 dimension QA and OCR review tests
+
+- Import drawings with embedded PDF text and separately scanned text (OCR enabled). Confirm that ordinary labels, elevations, stationing, radius, diameter and scale callouts do not become approved linear dimensions.
+- Recognize metric (mm/m/cm), decimal imperial, and feet-inch fractional strings with correct unit conversion and comparison.
+- Validate a synthetic horizontal and vertical dimension baseline with two witness lines; if one witness is missing, do not fabricate endpoints.
+- Confirm that source notes without an association appear as unresolved until an operator picks two endpoints.
+- Calibrate using one reference, then validate a **different independent** dimension, with correct unit and nonzero tolerance.
+- Change the scale, units, printed label, or tolerance. Previously confirmed measurements must require re-review.
+- Check both within-tolerance and out-of-tolerance conditions; confirming review must **not** hide a mismatch.
+- Correct OCR text, add a manual missing note, ignore irrelevant numeric text, clear manual endpoints, and cancel a two-point selection with Escape.
+- Zoom/pan between two dimension clicks and verify the stored source-pixel positions.
+- Export a per-sheet CSV and batch ZIP. Inspect checked counts, unresolved notes, reviewer confirmations, delta signs, selected units, and point coordinates.
+- Open the DXF in Civil 3D. Note that printed labels remain TEXT, **not** native associative DIMENSION entities. Verify independently.
+- Use an actual old/faded and dense engineering scan as well as synthetic fixtures; test runtime and label false positives.
