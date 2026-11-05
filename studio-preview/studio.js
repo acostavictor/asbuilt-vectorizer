@@ -52,6 +52,27 @@
     }
   });
 
+  // Drawing-first opening state: properties and empty queue stay out of the
+  // way until they contain useful information. The original toggle remains.
+  const inspector=el("inspector"),inspectorToggle=el("toggleInspector");
+  if(inspector&&inspectorToggle){
+    inspector.classList.add("collapsed");
+    inspectorToggle.textContent="Show properties";
+    inspectorToggle.setAttribute("aria-pressed","false");
+  }
+  const sheetCount=el("sheetCount"),sheetBar=el("sheetBar"),sheetToggle=el("toggleSheets");
+  if(sheetCount&&sheetBar){
+    let previous=0;
+    const updateSheetRail=()=>{
+      const current=Number((sheetCount.textContent||"").match(/\((\d+)/)?.[1]||0);
+      if(current===0){sheetBar.hidden=true;if(sheetToggle)sheetToggle.setAttribute("aria-pressed","false");}
+      else if(previous===0){sheetBar.hidden=false;if(sheetToggle)sheetToggle.setAttribute("aria-pressed","true");}
+      previous=current;
+    };
+    new MutationObserver(updateSheetRail).observe(sheetCount,{childList:true,subtree:true,characterData:true});
+    updateSheetRail();
+  }
+
   const input=el("files");
   const importButton=el("studioImport");
   if(importButton&&input)importButton.addEventListener("click",()=>input.click());
