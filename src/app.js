@@ -5,6 +5,7 @@ import {detectHatches} from "./hatch.js";
 import {recognizeCircles} from "./circles.js";
 import {repairNearClosedContours,validatePolygon,applyManualHatches} from "./hatch-repair.js";
 import {createDrawingViewport} from "./viewport.js";
+import {setupDimensionUI} from "./dimension-ui.js";
 import {planTiles,normalizeRoi,clipToTileAndRoi,isEditorWatermark,looksLikeEditorUrl,overlaps,dedupeText} from "./tile-engine.js";
 
 const $=id=>document.getElementById(id);
@@ -14,6 +15,9 @@ const MAX_SHEETS=50,MAX_RENDER_PIXELS=3200000;
 const viewport=createDrawingViewport({
   wrapper:$("canvaswrap"),stage:$("stage"),readout:$("zoomReadout"),
   crosshair:$("crosshair"),hint:$("viewHint"),onPick:handleViewportPick,onCancel:cancelSelection
+});
+const dimensionUI=setupDimensionUI({
+  getSheet:()=>state.sheets[state.selected],viewport,status,redraw:drawVectors,download
 });
 const presets={
   generic:["VEC-POLYLINES","ANNO-TEXT"],civil:["C-UNCLASSIFIED","C-ANNO"],
@@ -62,7 +66,7 @@ async function ensurePdf(){
 }
 function blankSheet(file,name,type,extra={}){
   return {file,name,type,status:"pending",paths:[],sourcePaths:[],circles:[],circleStats:null,contourStats:null,
-    manualHatchSpecs:[],manualHatchResults:[],hatches:[],hatchStats:null,straightStats:null,styledPaths:[],patternStats:null,lineTypeOverride:"auto",texts:[],width:0,height:0,
+    manualHatchSpecs:[],manualHatchResults:[],hatches:[],hatchStats:null,straightStats:null,styledPaths:[],patternStats:null,lineTypeOverride:"auto",texts:[],dimensions:[],dimensionDetection:null,width:0,height:0,
     scale:1,calibrated:false,units:"unitless",roi:null,processingDpi:null,tilesProcessed:0,watermarkDetected:false,geometryLayer:presets[$("preset").value][0],
     textLayer:presets[$("preset").value][1],hatchLayer:"HATCH-REVIEW",warning:"",...extra};
 }
@@ -319,6 +323,7 @@ async function convertSheet(i){
     if(previousWidth>0&&s.calibrated)s.scale*=previousWidth/source.width;
     s.watermarkDetected=source.watermarkDetected;s.processingDpi=s.type==="pdf"?dpi:null;
     s.tilesProcessed=tiles.length;s.status="done";
+    dimensionUI.scan(s,{preserveManual:false});
     s.warning=(truncatedTiles?truncatedTiles+" tiles reached the vector cap. ":"")+
       (nonConvergedTiles?nonConvergedTiles+" tiles did not fully thin. ":"")+
       (source.watermarkDetected?"PDF-XChange overlay detected"+($("removeWatermark").checked?" and filtered. ":". "):"")+
@@ -363,6 +368,7 @@ async function selectSheet(i,force=false){
   $("calibrate").textContent="Pick two points";$("crop").textContent="Select drawing area";
   cancelHatchDrawing();
   const s=state.sheets[i];applySheetSettings();updateList();$("previewTitle").textContent=s.name;
+  dimensionUI.onSheetChanged();
   viewport.setTool("pan");
   const token=++state.token;
   if(!force&&s.previewToken===token)return;
@@ -380,6 +386,7 @@ async function selectSheet(i,force=false){
 function updateStats(){
   const s=state.sheets[state.selected];if(!s)return;
   $("previewStats").textContent=(s.paths.length||0)+" vectors · "+(s.texts.length||0)+" text entities · "+s.status+
+    (s.dimensions?.length?" · "+s.dimensions.length+" dimension candidates":"")+
     (s.tilesProcessed?" · "+s.tilesProcessed+" tiles":"")+
     (s.processingDpi?" · "+s.processingDpi+" DPI":"")+
     (s.styledPaths?.length?" · "+s.styledPaths.length+" reconstructed dash runs":"")+
@@ -541,6 +548,7 @@ function drawVectors(){
       const [x,y]=state.calibration.points[i];marker(x/sheet.width,y/sheet.height,i+1);
     }
   }
+  dimensionUI.drawOverlay(ctx,sheet,sx,sy);
   $("imageCanvas").style.opacity=vectorOnly?"1":state.view==="overlay"?"0.51":"1";
   $("imageCanvas").style.display=vectorOnly?"none":"block";
   canvas.style.display=state.view==="original"?"none":"block";
@@ -583,6 +591,9 @@ async function exportZip(){
     for(const s of completed){
       const output=makeDxf(s),name=filenameBase(s.name)+".dxf";
       zip.file(name,output.content);
+      if(s.dimensions?.length){
+        zip.file("dimension-QA/"+filenameBase(s.name)+"-dimensions.csv",dimensionUI.report(s));
+      }
       manifest.push({name:s.name,output:name,entities:output.geometryCount,texts:output.textCount,
         layers:output.layers,units:s.units,calibrated:s.calibrated,unitsPerPixel:s.scale,
         pageRelativeCoordinates:true,processingDpi:s.processingDpi,tilesProcessed:s.tilesProcessed,
@@ -593,6 +604,10 @@ async function exportZip(){
         circleRecognition:s.circleStats||null,boundaryRepair:s.contourStats||null,
         manualHatchResults:s.manualHatchResults||[],hatchLayer:output.hatchLayer,
         hatchRecognition:s.hatchStats||null,straightening:s.straightStats||null,
+        dimensions:dimensionUI.stats(s),dimensionDetection:s.dimensionDetection||null,
+        dimensionChecks:dimensionUI.details(s),
+        dimensionTolerance:{relativePercent:Number($("dimTolerancePercent").value),
+          absoluteDrawingUnits:Number($("dimToleranceAbsolute").value)},
         drawingArea:s.roi,watermarkDetected:s.watermarkDetected,
         warning:s.warning||"Manual QA required"});
     }
@@ -624,6 +639,7 @@ function syncValue(id,key,validate=null){
     if(validate&&!validate(value)){status("Invalid value for "+id);$(id).value=s[key];return;}
     s[key]=id==="scale"?Number(value):value;
     if(id==="scale")s.calibrated=true;
+    if(id==="scale"||id==="units")dimensionUI.onScaleChanged();
     updateStats();
   });
 }
@@ -640,7 +656,7 @@ $("exportZip").addEventListener("click",exportZip);
 $("clear").addEventListener("click",()=>{
   if(state.busy)return;state.sheets=[];state.selected=-1;state.token++;state.calibration=null;
   $("stage").hidden=true;$("empty").hidden=false;$("previewTitle").textContent="No drawing selected";
-  cancelHatchDrawing();
+  cancelHatchDrawing();dimensionUI.reset();
   viewport.reset();$("inspectorState").textContent="No sheet";
   $("previewStats").textContent="No sheet selected";$("progress").style.width="0";status("Files cleared from this page.");
   updateList();
@@ -743,7 +759,7 @@ function invalidateConversion(s){
   if(s.status==="done"||s.status==="error"){
     s.status="pending";s.paths=[];s.sourcePaths=[];s.circles=[];s.circleStats=null;s.contourStats=null;
     s.manualHatchSpecs=[];s.manualHatchResults=[];s.hatches=[];s.hatchStats=null;s.straightStats=null;
-    s.styledPaths=[];s.patternStats=null;s.texts=[];
+    s.styledPaths=[];s.patternStats=null;s.texts=[];s.dimensions=[];s.dimensionDetection=null;
     s.warning="Drawing area changed; reconvert this sheet.";
     s.tilesProcessed=0;s.processingDpi=null;updateList();
   }
@@ -762,12 +778,13 @@ $("clearCrop").addEventListener("click",()=>{
   invalidateConversion(s);drawVectors();updateStats();status("Drawing area cleared. Reconvert for full-sheet output.");
 });
 function cancelSelection(){
-  state.calibration=null;state.cropping=null;cancelHatchDrawing();
+  state.calibration=null;state.cropping=null;cancelHatchDrawing();dimensionUI.cancelPick();
   $("calibrate").textContent="Pick two points";$("crop").textContent="Select drawing area";
   drawVectors();
 }
 function handleViewportPick({nx,ny,tool}){
   const s=state.sheets[state.selected];if(!s)return;
+  if(tool==="dimension"&&dimensionUI.handlePick({nx,ny,tool}))return;
   if(tool==="hatch"&&state.hatchEditing){
     state.hatchEditing.points.push([nx*s.width,ny*s.height]);
     const count=state.hatchEditing.points.length;
@@ -810,7 +827,7 @@ function handleViewportPick({nx,ny,tool}){
       $("calibrate").textContent="Pick first point";drawVectors();return;
     }
     s.scale=state.calibration.known/pixels;s.calibrated=true;
-    applySheetSettings();
+    dimensionUI.onScaleChanged();applySheetSettings();
     const distance=state.calibration.known;
     state.calibration=null;viewport.setTool("pan");$("calibrate").textContent="Pick two points";
     status("Calibration applied: "+distance+" "+s.units+" across "+pixels.toFixed(1)+" source pixels. Verify another dimension.");
