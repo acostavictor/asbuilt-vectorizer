@@ -1,5 +1,23 @@
 # AsBuilt Vectorizer
 
+## Studio interface redesign preview
+
+A second, fully functional interface is available at **[Studio preview](https://acostavictor.github.io/asbuilt-vectorizer/studio-preview/)**. The current production interface remains available at the repository root.
+
+The redesign follows the published [StageShow](https://github.com/benjitaylor/skills/tree/main/stageshow) UI craft principles: one focal workspace, quieter chrome, more deliberate hierarchy, and progressive disclosure of advanced controls. StageShow itself is primarily for *product UI illustrations*, not a production PDF conversion runtime. The preview uses ordinary HTML/CSS and the existing \`src/app.js\` processing engine, with no StageShow package dependency.
+
+**What changed:**
+- Cleaner, slimmer navigation and a compact command row
+- Larger dark drawing workspace with unobtrusive floating navigation controls
+- **Convert** exposes image quality, geometry and OCR by default; linetype and hatch tuning live under **Advanced conversion**
+- **Review & scale** focuses on calibration and drawing-area selection; the detailed manual hatch repair tools live under **Hatch editor**
+- Quick DXF download in the header once the selected sheet has converted
+- One-click empty-state import, quieter drawing properties and sheet queue
+- Mobile-aware arrangement, with the original canvas zoom/pan, PDF import, raster recognition, calibration, layer management and DXF export preserved
+
+**Test both interfaces before replacing the default.** The Studio page is a design preview, not a validated release, and must be tested on actual as-built scans in a browser. Feature improvements in \`src/app.js\` are shared by both interfaces. Do not upload confidential project PDFs to the repository.
+
+
 Browser-based, **client-side** PDF/image-to-layered-DXF proof of concept for engineering drawings. The selected drawings are processed in the user's browser, with no application upload endpoint.
 
 > **Status: pre-release proof of concept.** Raster centerline tracing and OCR are experimental. DXF drawings require manual quality control and scale calibration before engineering use. Native DWG export is **not** included.
