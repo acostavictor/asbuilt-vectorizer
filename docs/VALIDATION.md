@@ -84,3 +84,18 @@ True DWG export, survey georeferencing, CAD curves and Civil 3D intelligent obje
 - Export a per-sheet CSV and batch ZIP. Inspect checked counts, unresolved notes, reviewer confirmations, delta signs, selected units, and point coordinates.
 - Open the DXF in Civil 3D. Note that printed labels remain TEXT, **not** native associative DIMENSION entities. Verify independently.
 - Use an actual old/faded and dense engineering scan as well as synthetic fixtures; test runtime and label false positives.
+
+
+## v0.8 CAD topology repair validation
+
+- Convert a clean and a damaged engineering drawing. Run **Repair → Scan geometry**, and inspect selected originals (amber) against proposed replacements (cyan) at 100% and fit zoom.
+- Reversed identical LINE entities should produce one duplicate proposal; intentional parallel lines, multi-segment curves and partial overlapping lines should remain untouched.
+- Short, nearly collinear gaps should propose a connected LINE. Wider or ambiguous joins must require review; near-branching T junctions must never be in the low-risk batch.
+- Trim/extend suggestions at an angled corner must be approved individually and should not alter unrelated geometry or move a nearby existing crossing.
+- Apply low-risk fixes, then test single Apply, Undo, Redo, Undo followed by a different edit, and switching between converted sheets.
+- Verify that DXF contains the edited line endpoints and that CIRCLE, HATCH, dashed/hidden and TEXT entities are unaffected by line cleanup.
+- Change repair tolerance and confirm the proposals update without modifying geometry or wiping previously applied, still-valid fixes.
+- Check that modifying hatches after an applied repair is blocked with an explanation, rather than silently discarding edits.
+- Revalidate OCR/dimension endpoint associations and previously confirmed dimension QA after a geometry repair. Confirmation must be invalidated.
+- Inspect the batch ZIP's \`repair-QA\` JSON and \`QA-manifest.json\` for accepted repairs, tolerance, sample caps, and unresolved suggestions.
+- Test the 350-proposal / 75,000-segment cap on a dense sheet, measure performance on a laptop, and check actual DXF files in Civil 3D.
