@@ -5,7 +5,7 @@ import {detectPrintedDimensions,evaluateDimension,summarizeDimensionQA,
  * Browser-local dimension review workflow. No network calls, no HTML from OCR
  * content and no automatic claim of engineer-approved dimensions.
  */
-export function setupDimensionUI({getSheet,viewport,status,redraw,download}){
+export function setupDimensionUI({getSheet,viewport,status,redraw,download,showOverlay}){
   const $=id=>document.getElementById(id);
   const drawer=$("dimensionDrawer");
   const state={selectedId:null,picking:null,active:false};
@@ -145,7 +145,7 @@ export function setupDimensionUI({getSheet,viewport,status,redraw,download}){
     render();redraw();
   }
   function open(){
-    state.active=true;drawer.hidden=false;
+    state.active=true;drawer.hidden=false;showOverlay?.();
     if(current()?.status==="done"&&!current()?.dimensions)scan(current());
     render();redraw();
   }
