@@ -24,5 +24,6 @@ jobs:
           node --check src/viewport.js
           node --check src/dxf.js
           node --check src/vector-worker.js
+          node --check studio-preview/studio.js
       - name: Test local conversion core
         run: npm test
