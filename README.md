@@ -1,8 +1,18 @@
-# AsBuilt Vectorizer
+# VecBuilt
+
+## Logo
+
+VecBuilt's mark is a vector path V with anchor-point nodes, with raster pixels dissolving into it: a scanned as-built becoming usable vector linework. Colors: navy `#0B101E`, cyan `#38BDF8`, white nodes.
+
+- Mark: [`assets/logo-mark.svg`](assets/logo-mark.svg) (also wired as the favicon on every page)
+- Dark lockup: [`assets/vecbuilt-lockup-dark.svg`](assets/vecbuilt-lockup-dark.svg)
+- Light lockup: [`assets/vecbuilt-lockup-light.svg`](assets/vecbuilt-lockup-light.svg)
+
+Full usage notes live in [`docs/LOGO.md`](docs/LOGO.md). The repository and Pages URLs still use the old `asbuilt-vectorizer` slug; only the display name changed.
 
 ## Default interface and Help Center
 
-**Studio is now the default application** at **[AsBuilt Vectorizer](https://acostavictor.github.io/asbuilt-vectorizer/)**. The earlier ribbon layout is preserved at **[Classic interface](https://acostavictor.github.io/asbuilt-vectorizer/classic/)**.
+**Studio is now the default application** at **[VecBuilt](https://acostavictor.github.io/asbuilt-vectorizer/)**. The earlier ribbon layout is preserved at **[Classic interface](https://acostavictor.github.io/asbuilt-vectorizer/classic/)**.
 
 A full **[Help Center](https://acostavictor.github.io/asbuilt-vectorizer/help/)** covers importing files, scan settings, zoom/pan, scale calibration, circles, HATCH and dashed-line reconstruction, manual hatch editing, CAD layers, DXF/ZIP export, troubleshooting, privacy, and engineering QA. A Help link is visible in both application headers. The historical [Studio preview URL](https://acostavictor.github.io/asbuilt-vectorizer/studio-preview/) remains available for existing links.
 

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="256" viewBox="0 0 820 256">
+  <title>VecBuilt logo lockup, dark background version</title>
+  <desc>VecBuilt logo mark beside the wordmark. Vec in white, Built in cyan. For dark backgrounds and the app header.</desc>
+  <!-- Mark -->
+  <g>
+    <rect x="8" y="8" width="240" height="240" rx="52" fill="#0B101E"/>
+    <rect x="36" y="36" width="14" height="14" rx="3" fill="#64748B"/>
+    <rect x="58" y="36" width="14" height="14" rx="3" fill="#475569"/>
+    <rect x="36" y="58" width="14" height="14" rx="3" fill="#475569"/>
+    <path d="M72 80 L128 184 L184 80" fill="none" stroke="#38BDF8" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="72" cy="80" r="14" fill="#FFFFFF" stroke="#38BDF8" stroke-width="5"/>
+    <circle cx="128" cy="184" r="14" fill="#FFFFFF" stroke="#38BDF8" stroke-width="5"/>
+    <circle cx="184" cy="80" r="14" fill="#FFFFFF" stroke="#38BDF8" stroke-width="5"/>
+  </g>
+  <!-- Wordmark -->
+  <text x="300" y="150" font-family="Inter, 'Segoe UI', 'Liberation Sans', Helvetica, Arial, sans-serif" font-size="96" font-weight="700" letter-spacing="-2"><tspan fill="#FFFFFF">Vec</tspan><tspan fill="#38BDF8">Built</tspan></text>
+</svg>

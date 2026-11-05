@@ -597,11 +597,11 @@ async function exportZip(){
         warning:s.warning||"Manual QA required"});
     }
     zip.file("QA-manifest.json",JSON.stringify({
-      product:"AsBuilt Vectorizer",status:"experimental",generatedAt:new Date().toISOString(),
+      product:"VecBuilt",status:"experimental",generatedAt:new Date().toISOString(),
       warning:"This is unverified centerline tracing. Drawings are not engineering-certified or georeferenced.",
       drawings:manifest},null,2));
     const blob=await zip.generateAsync({type:"blob",compression:"DEFLATE"});
-    download(blob,"asbuilt-vectorizer-dxf-batch.zip");
+    download(blob,"vecbuilt-dxf-batch.zip");
     status("Downloaded "+completed.length+" DXFs and QA manifest.");
   }catch(e){status("ZIP export error: "+e.message);}finally{busy(false);}
 }

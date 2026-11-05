@@ -1,4 +1,4 @@
-# AsBuilt Vectorizer: Version 1 sketch: from raster tracer to semantic drawing set
+# VecBuilt: Version 1 sketch: from raster tracer to semantic drawing set
 
 ## Where v0.6 stands (grounded in the repo, not assumed)
 
