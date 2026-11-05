@@ -1,9 +1,9 @@
 {
   "name": "vecbuilt",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "private": true,
   "type": "module",
-  "description": "Browser-local raster-to-DXF with dimension recognition and measurement QA",
+  "description": "Browser-local PDF-to-DXF conversion with dimension QA and reversible CAD topology repair",
   "scripts": {
     "test": "node --test tests/*.test.js",
     "start": "python3 -m http.server 8080"
