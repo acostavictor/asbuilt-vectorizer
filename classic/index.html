@@ -225,6 +225,8 @@
     </div>
     <div id="dimensionSummary" class="dimension-summary" role="status">Convert a drawing to find printed dimensions.</div>
     <div class="dimension-drawer-note">Automatic matches are provisional. Confirm endpoints against the source drawing, then approve the finding.</div>
+    <div class="dimension-add-row"><label for="dimNewLabel">Add a missing printed measurement</label>
+      <div><input id="dimNewLabel" type="text" maxlength="48" placeholder="e.g. 12'-6\" or 2500 mm"><button id="dimAddLabel" type="button">Add note</button></div></div>
     <div class="dimension-result-list" id="dimensionList" aria-label="Detected dimension notes"></div>
     <section class="dimension-detail" id="dimensionDetail" hidden>
       <div class="dimension-detail-heading">SELECTED DIMENSION <span id="dimSelectedId"></span></div>
