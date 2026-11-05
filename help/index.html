@@ -23,7 +23,7 @@
   </header>
   <div class="layout">
     <aside class="toc" aria-label="Help topics">
-      <div class="toc-title">DOCUMENTATION <span>v0.7</span></div>
+      <div class="toc-title">DOCUMENTATION <span>v0.8</span></div>
       <nav>
         <a href="#overview">Overview</a>
         <a href="#quick-start">Quick start</a>
@@ -33,6 +33,7 @@
         <a href="#conversion">Conversion settings</a>
         <a href="#cad-geometry">CAD entities &amp; QA</a>
         <a href="#hatch-editing">Hatch boundary repair</a>
+        <a href="#cad-repair">CAD cleanup &amp; repair</a>
         <a href="#export">Layers &amp; export</a>
         <a href="#troubleshooting">Troubleshooting</a>
         <a href="#privacy">Privacy &amp; limitations</a>
@@ -171,6 +172,20 @@
             <li>Click <strong>Finish hatch</strong> or press Enter. Use <strong>Undo point</strong> while drawing or <strong>Undo hatch</strong> afterward to revert the most recent manual addition.</li>
           </ol>
           <div class="note"><strong>Replace matched source strokes</strong><p>This option is off by default. Enable it only if the region contains true hatch strokes that should be removed from the remaining geometry. Otherwise the original strokes can remain behind the newly created HATCH.</p></div>
+        </section>
+
+        <section class="doc-section" id="cad-repair">
+          <div class="section-kicker">07 / CAD CLEANUP</div>
+          <h2>Repair disconnected and duplicate linework</h2>
+          <p class="lead">VecBuilt v0.8 includes a non-destructive, review-first tool to improve the connectivity of reconstructed CAD geometry after conversion.</p>
+          <div class="steps">
+            <article class="step"><span class="step-number">01</span><div><h3>Scan the reconstructed drawing</h3><p>Convert a sheet and choose the <strong>Repair</strong> ribbon tab. Select <strong>Scan geometry</strong>. Default maximum gap: 3 source pixels, adjustable from 0.2 to 25. The scan analyzes the exported linework, not the original PDF pixels.</p></div><span class="step-meta">SCAN</span></article>
+            <article class="step"><span class="step-number">02</span><div><h3>Inspect highlighted suggestions</h3><p>Select an issue in the Geometry repair drawer. The canvas centers the problem; amber shows the current line segments and cyan indicates the replacement geometry. Suggestions cover identical duplicates, small collinear gaps and candidate trim/extend intersections.</p></div><span class="step-meta">REVIEW</span></article>
+            <article class="step"><span class="step-number">03</span><div><h3>Apply individual or low-risk edits</h3><p>Use <strong>Apply selected</strong> after inspecting the suggested change. <strong>Apply low-risk</strong> handles only near-identical duplicates and tiny aligned joins without branching endpoints. Angled corner corrections always require individual approval.</p></div><span class="step-meta">REPAIR</span></article>
+            <article class="step"><span class="step-number">04</span><div><h3>Undo, redo and compare</h3><p>Use the ribbon <strong>Undo</strong> and <strong>Redo</strong> actions to compare before/after geometry. Up to 20 repair transactions are retained per sheet while it stays in the browser. The cleaned geometry is used in both the vector preview and the DXF export.</p></div><span class="step-meta">VERIFY</span></article>
+            <article class="step"><span class="step-number">05</span><div><h3>Deliver the cleanup audit</h3><p>Batch ZIP exports include a JSON report in <code>repair-QA</code> and accepted repair counts in <code>QA-manifest.json</code>. Re-check dimension QA, endpoints and intersections in Civil 3D or AutoCAD after any topology edit.</p></div><span class="step-meta">EXPORT</span></article>
+          </div>
+          <div class="note warning"><strong>Important safety limits</strong><p>These are geometry-based suggestions, not guarantees of design intent. Intentional gaps, utilities, symbols, drafting conventions and dimension leaders can resemble cleanup errors. VecBuilt never silently applies uncertain fixes. Circles, hatches, curved polylines, text and recognized dash patterns are excluded from this repair stage. Finish hatch corrections before applying CAD repairs, because rebuilding hatch classifications changes the underlying geometry. Dense sheets may exceed the capped review list.</p></div>
         </section>
 
         <section class="doc-section" id="export">
