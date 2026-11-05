@@ -311,7 +311,7 @@ async function convertSheet(i){
       const options={threshold:$("threshold").value==="auto"?null:($("threshold").value==="adaptive"?"adaptive":Number($("threshold").value)),
         minLength:$("detectLinetypes").checked?Math.min(2,Math.max(4,Number($("minLength").value)||17)):Math.max(4,Number($("minLength").value)||17),
         epsilon:Math.max(.2,Number($("epsilon").value)||1.6),maxPaths:12000,
-        minComponent:Math.max(0,Number($("speckles").value)||0),masks};
+        minComponent:Math.max(0,Number($("speckles").value)||0),smoothCurves:$("smoothCurves").checked,masks};
       const result=await trace(canvas,options);
       if(result.truncated)truncatedTiles++;
       if(!result.thinningConverged)nonConvergedTiles++;

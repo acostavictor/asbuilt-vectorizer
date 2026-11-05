@@ -306,3 +306,18 @@ text height. Common architectural/civil/metric ratios and a custom 1:n value are
 available. Plot scale does not calibrate raster geometry. Set later leaves that
 sheet unconfigured and blocks its DXF export (or the whole batch containing it)
 until a scale is entered. Use Layers → Set sheet scale to reopen the question.
+
+## Small-curve detail and smoothing
+
+Convert → Geometry includes **Smooth curves & preserve small details**, enabled by
+default. Raster paths receive a bounded subpixel noise filter before simplification.
+Open-path junction endpoints and sharp corners (including adjacent samples) are
+protected. Movement is capped at 0.4 source pixels, and simplification error scales
+down with feature size instead of flattening small-radius elements at a fixed 1.6 px.
+Small loops remain polylines unless the existing conservative circle fitter accepts
+them; smoothing does not force text-like loops into CAD circles. These are smoothed
+polylines, not newly inferred spline or ARC entities.
+
+Reconvert sheets after changing this option. Scans with very few pixels across a
+radius can still look faceted; higher source resolution is needed to recover detail
+that is absent from the input. Smoothing cannot certify original dimensions.

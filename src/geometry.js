@@ -1,3 +1,4 @@
+import {smoothRasterPath,detailTolerance} from "./curve-smoothing.js";
 // Pixel-space centerline tracing. Experimental: not engineering-validated.
 const offsets = [[0,-1],[1,-1],[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1]];
 export function otsuThreshold(rgba) {
@@ -130,7 +131,7 @@ export function simplifyPath(path,epsilon=1.6){
   }
   return path.filter((_,i)=>mark[i]);
 }
-export function traceSkeleton(p,width,height,{minLength=17,epsilon=1.6,maxPaths=25000}={}){
+export function traceSkeleton(p,width,height,{minLength=17,epsilon=1.6,maxPaths=25000,smoothCurves=true}={}){
   const visited=new Uint8Array(p.length),paths=[];let truncated=false;
   const available=(i,d)=>(visited[i]&(1<<d))===0;
   function follow(start,next,dir){
@@ -144,7 +145,10 @@ export function traceSkeleton(p,width,height,{minLength=17,epsilon=1.6,maxPaths=
       if(possible.length!==1||!available(current,possible[0][1]))break;
       prev=current;current=possible[0][0];d=possible[0][1];
     }
-    if(length>=minLength)paths.push(simplifyPath(path,epsilon));
+    if(length>=minLength){
+      const smoothed=smoothRasterPath(path,{enabled:smoothCurves});
+      paths.push(simplifyPath(smoothed,smoothCurves?detailTolerance(smoothed,epsilon):epsilon));
+    }
   }
   for(let pass=0;pass<2;pass++){
     for(let i=0;i<p.length;i++){
@@ -160,11 +164,11 @@ export function traceSkeleton(p,width,height,{minLength=17,epsilon=1.6,maxPaths=
   }
   return {paths,truncated};
 }
-export function vectorize({rgba,width,height,threshold=null,minLength=17,epsilon=1.6,masks=[],maxPaths=12000,minComponent=0}){
+export function vectorize({rgba,width,height,threshold=null,minLength=17,epsilon=1.6,masks=[],maxPaths=12000,minComponent=0,smoothCurves=true}){
   const input=threshold==="adaptive"?adaptiveBinarize(rgba,width,height,{masks}):binarize(rgba,width,height,threshold,masks);
   removeSpeckles(input.pixels,width,height,minComponent);
   const result=thinZhangSuen(input.pixels,width,height);
-  const traced=traceSkeleton(result.pixels,width,height,{minLength,epsilon,maxPaths});
+  const traced=traceSkeleton(result.pixels,width,height,{minLength,epsilon,maxPaths,smoothCurves});
   return {paths:traced.paths,truncated:traced.truncated,usedThreshold:input.threshold,
     thinningIterations:result.iterations,thinningConverged:result.converged};
 }
