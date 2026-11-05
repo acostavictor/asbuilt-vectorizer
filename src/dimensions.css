@@ -55,3 +55,11 @@
 #panel-dimensions .ribbon-controls{min-height:39px}
 @media(max-width:850px){.dimension-drawer{width:min(330px,85vw)}}
 @media(max-width:560px){.dimension-drawer{width:100%;box-shadow:none}.dimension-detail{max-height:43%}}
+
+.dimension-add-row{padding:12px 17px;background:#fafcfc;border-bottom:1px solid #e5edef}
+.dimension-add-row label{display:block;font-size:10px;font-weight:700;color:#637d8a;margin-bottom:7px}
+.dimension-add-row>div{display:flex;gap:6px}
+.dimension-add-row input{flex:1;min-width:0;height:33px;border:1px solid #d5e4e9;border-radius:5px;padding:6px 9px;background:white;font-size:11px;color:#24485b}
+.dimension-add-row button{height:33px;border-radius:5px;padding:5px 9px;border:1px solid #b0d5d3;background:#eaf7f4;color:#146e71;font-size:10px;font-weight:730;white-space:nowrap}
+.dimension-add-row button:hover{background:#d7efe9}
+.dimension-result-row:focus-visible,.dimension-drawer button:focus-visible,.dimension-drawer input:focus-visible{outline:2px solid #178f93;outline-offset:2px}
