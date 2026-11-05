@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#15232f">
+  <meta name="description" content="AsBuilt Vectorizer help: convert scanned PDFs to editable DXF, calibrate scale, review geometry, and troubleshoot results.">
+  <title>Help Center | AsBuilt Vectorizer</title>
+  <link rel="stylesheet" href="./help.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to help content</a>
+  <header class="topbar">
+    <a class="wordmark" href="../studio-preview/" aria-label="AsBuilt Vectorizer Studio home">
+      <strong>AsBuilt Vectorizer</strong><span class="wordmark-divider"></span><span>Help Center</span>
+    </a>
+    <nav class="top-actions" aria-label="Application links">
+      <a href="../">Classic interface</a>
+      <a class="top-primary" href="../studio-preview/"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18 6-6-6-6M21 12H3"/></svg> Open Studio</a>
+    </nav>
+  </header>
+  <div class="layout">
+    <aside class="toc" aria-label="Help topics">
+      <div class="toc-title">DOCUMENTATION <span>v0.6</span></div>
+      <nav>
+        <a href="#overview">Overview</a>
+        <a href="#quick-start">Quick start</a>
+        <a href="#navigation">Zoom, pan &amp; selection</a>
+        <a href="#calibration">Scale calibration</a>
+        <a href="#conversion">Conversion settings</a>
+        <a href="#cad-geometry">CAD entities &amp; QA</a>
+        <a href="#hatch-editing">Hatch boundary repair</a>
+        <a href="#export">Layers &amp; export</a>
+        <a href="#troubleshooting">Troubleshooting</a>
+        <a href="#privacy">Privacy &amp; limitations</a>
+      </nav>
+      <div class="toc-footer">
+        <span class="online-dot"></span> Runs in your browser
+        <p>Engineering review required before using exported drawings for design or construction.</p>
+      </div>
+    </aside>
+    <main id="main">
+      <div class="main-inner">
+        <div class="breadcrumb"><a href="../studio-preview/">Studio</a><span>/</span> Help Center</div>
+        <section class="hero" id="overview">
+          <div class="eyebrow">USER GUIDE <span class="eyebrow-line"></span> ASBUILT VECTORIZER</div>
+          <h1>From scanned drawing<br>to editable CAD.</h1>
+          <p>Everything you need to import an as-built PDF, reconstruct linework, calibrate it, and export a reviewable DXF. Follow the workflow below to get started.</p>
+          <div class="hero-actions">
+            <a class="primary-link" href="../studio-preview/">Launch Studio <span aria-hidden="true">↗</span></a>
+            <a class="secondary-link" href="#quick-start">Start the guide <span aria-hidden="true">↓</span></a>
+          </div>
+          <div class="hero-meta"><span>PDF · PNG · JPG</span><span class="meta-sep"></span><span>Up to 50 sheets</span><span class="meta-sep"></span><span>Layered DXF output</span></div>
+        </section>
+
+        <section class="doc-section" id="quick-start">
+          <div class="section-kicker">01 / WORKFLOW</div>
+          <h2>Quick start</h2>
+          <p class="lead">Start with a single representative sheet before processing a batch. That lets you check settings and output quality without waiting for every drawing.</p>
+          <div class="steps">
+            <article class="step"><span class="step-number">01</span><div><h3>Import a drawing</h3><p>Open <strong>Home → Add drawings</strong> and select a PDF, PNG, or JPG. Multi-page PDFs are split into individual sheets, up to the 50-sheet batch limit.</p></div><span class="step-meta">HOME</span></article>
+            <article class="step"><span class="step-number">02</span><div><h3>Choose scan quality</h3><p>In <strong>Convert</strong>, begin with <strong>150 DPI</strong> and Automatic threshold. For faded or thin strokes, try Adaptive threshold or 200 DPI. Higher resolution needs more processing time.</p></div><span class="step-meta">CONVERT</span></article>
+            <article class="step"><span class="step-number">03</span><div><h3>Convert the sheet</h3><p>Choose <strong>Home → Convert sheet</strong>, or Convert all for a batch. The app reconstructs raster linework in local processing tiles. Wait until the selected sheet reports Converted.</p></div><span class="step-meta">HOME</span></article>
+            <article class="step"><span class="step-number">04</span><div><h3>Review actual extracted geometry</h3><p>Switch between <strong>Original</strong>, <strong>Overlay</strong>, and <strong>Vectors only</strong>. Inspect line connections, circle shapes, hatches, dimensions, and dashed-line patterns.</p></div><span class="step-meta">REVIEW</span></article>
+            <article class="step"><span class="step-number">05</span><div><h3>Calibrate and verify</h3><p>Open <strong>Review &amp; scale</strong>, enter a known distance and drawing units, then pick its two endpoints. Confirm a <em>different</em> known measurement for accuracy.</p></div><span class="step-meta">SCALE</span></article>
+            <article class="step"><span class="step-number">06</span><div><h3>Export to CAD</h3><p>Check the layer names under <strong>Layers</strong>. Choose <strong>Download DXF</strong> or <strong>Batch ZIP</strong>, then verify the editable entities in AutoCAD or Civil 3D.</p></div><span class="step-meta">EXPORT</span></article>
+          </div>
+        </section>
+
+        <section class="doc-section" id="navigation">
+          <div class="section-kicker">02 / VIEWPORT</div>
+          <h2>Zoom, pan and point selection</h2>
+          <p class="lead">The PDF preview occupies the center of the app. You can change your view between choosing calibration or hatch-boundary points.</p>
+          <div class="shortcut-grid">
+            <div><kbd>Mouse wheel</kbd><span>Zoom toward the cursor</span></div>
+            <div><kbd>Drag</kbd><span>Pan in Pan mode</span></div>
+            <div><kbd>Space</kbd> + <kbd>Drag</kbd><span>Pan temporarily while selecting</span></div>
+            <div><kbd>F</kbd><span>Fit drawing to screen</span></div>
+            <div><kbd>1</kbd><span>View at 100% preview resolution</span></div>
+            <div><kbd>+</kbd> / <kbd>−</kbd><span>Zoom in / out</span></div>
+            <div><kbd>P</kbd><span>Return to Pan mode</span></div>
+            <div><kbd>Esc</kbd><span>Cancel current point selection</span></div>
+          </div>
+          <div class="note"><strong>Precision note</strong><p>Zooming enlarges the current preview image. It does not re-render the PDF at higher resolution on demand. Calibrate using long, legible dimensions and verify scale in CAD.</p></div>
+        </section>
+
+        <section class="doc-section" id="calibration">
+          <div class="section-kicker">03 / ACCURACY</div>
+          <h2>Calibrate drawing scale</h2>
+          <p class="lead">Scans are measured in pixels, not feet or meters. Calibration establishes how many drawing units each processed pixel represents.</p>
+          <div class="instruction-panel">
+            <div class="mini-diagram" aria-label="Diagram: two endpoints on a dimension">
+              <svg viewBox="0 0 440 144" role="img" aria-label="Two selected points, A and B, across one known dimension">
+                <path d="M48 40v78M392 40v78M48 69H392" fill="none" stroke="#98aebb" stroke-width="1.3"/>
+                <path d="m54 63-6 6 6 6m332-12 6 6-6 6" fill="none" stroke="#147f83" stroke-width="1.7"/>
+                <circle cx="48" cy="69" r="5" fill="#147f83" stroke="#fff" stroke-width="2"/>
+                <circle cx="392" cy="69" r="5" fill="#147f83" stroke="#fff" stroke-width="2"/>
+                <text x="42" y="28" font-size="12" fill="#416171" font-weight="600">A</text>
+                <text x="387" y="28" font-size="12" fill="#416171" font-weight="600">B</text>
+                <text x="220" y="56" text-anchor="middle" font-size="13" fill="#174353" font-weight="700">Known distance</text>
+                <text x="220" y="101" text-anchor="middle" font-size="11" fill="#718b99">Click the exact endpoints</text>
+              </svg>
+            </div>
+            <ol>
+              <li>Select the correct sheet and enter the dimension value under <strong>Known distance</strong>.</li>
+              <li>Choose its unit (feet, inches, meters, millimeters, or centimeters).</li>
+              <li>Click <strong>Pick two points</strong>, zoom in, and click point A.</li>
+              <li>Pan or zoom as necessary, then click point B. The app stores a scale for that sheet.</li>
+              <li>Export and compare a second independent dimension in CAD.</li>
+            </ol>
+          </div>
+          <div class="note warning"><strong>Not georeferencing</strong><p>Two-point calibration sets a measurement scale. It does not establish survey control, coordinate-system location, rotation, or real-world georeferencing.</p></div>
+        </section>
+
+        <section class="doc-section" id="conversion">
+          <div class="section-kicker">04 / PROCESSING</div>
+          <h2>Conversion settings</h2>
+          <p class="lead">The Studio interface keeps advanced options under <strong>Convert → Advanced conversion</strong>. The classic interface shows more controls directly in the Convert tab.</p>
+          <div class="setting-list">
+            <div><strong>Resolution</strong><p>96 DPI is faster, 150 DPI is a good first pass, and 200–240 DPI can recover finer scan details. Higher settings increase processing time.</p></div>
+            <div><strong>Threshold and noise</strong><p>Adaptive threshold helps with faded or uneven backgrounds. Speckle removal cleans small isolated marks but can also erase tiny valid features.</p></div>
+            <div><strong>Recognize circles</strong><p>Attempts to fit real CAD <code>CIRCLE</code> entities to sufficiently complete round strokes or matching fragments. Uncertain circular geometry stays as linework.</p></div>
+            <div><strong>Straighten lines</strong><p>Reduces small scanning distortions using best-fit lines. Optional orthogonal snapping affects only nearly horizontal or vertical lines; keep it off for drawings with intentional slopes.</p></div>
+            <div><strong>Hatch recognition</strong><p>Detects repeated line patterns inside reliable closed regions and creates CAD <code>HATCH</code> entities. Tiny border gaps can be repaired automatically; larger gaps need manual selection.</p></div>
+            <div><strong>Dashed and hidden lines</strong><p>Looks for regularly spaced collinear dash strokes and assigns <code>DASHED</code> or <code>HIDDEN</code> CAD linetypes. Classification reflects graphic rhythm, not proven engineering meaning.</p></div>
+            <div><strong>Text and watermark</strong><p>Optional OCR can convert printed labels to CAD text; verify every reading. PDF-XChange trial-overlay filtering is targeted and may not detect all watermarks.</p></div>
+          </div>
+        </section>
+
+        <section class="doc-section" id="cad-geometry">
+          <div class="section-kicker">05 / QUALITY</div>
+          <h2>What becomes editable CAD?</h2>
+          <p class="lead">The vector preview shows the reconstructed CAD geometry, not just a processed black-and-white image. Recognition is still experimental.</p>
+          <div class="entity-grid">
+            <div class="entity"><div class="entity-icon"><svg viewBox="0 0 90 58" aria-hidden="true"><path d="M15 42 72 15" fill="none" stroke="#1a8988" stroke-width="2.2"/></svg></div><code>LINE / LWPOLYLINE</code><p>Traced centerlines and path geometry</p></div>
+            <div class="entity"><div class="entity-icon"><svg viewBox="0 0 90 58" aria-hidden="true"><circle cx="45" cy="29" r="20" fill="none" stroke="#1a8988" stroke-width="2.2"/><circle cx="45" cy="29" r="2" fill="#1a8988"/></svg></div><code>CIRCLE</code><p>Fitted center and radius</p></div>
+            <div class="entity"><div class="entity-icon"><svg viewBox="0 0 90 58" aria-hidden="true"><defs><pattern id="hatch-graphic" width="8" height="8" patternTransform="rotate(30)" patternUnits="userSpaceOnUse"><line x1="0" x2="0" y1="0" y2="8" stroke="#1a8988" stroke-width="1.3"/></pattern></defs><rect x="12" y="11" width="66" height="36" fill="url(#hatch-graphic)" stroke="#1a8988"/></svg></div><code>HATCH</code><p>Diagonal, crosshatch or solid fill</p></div>
+            <div class="entity"><div class="entity-icon"><svg viewBox="0 0 90 58" aria-hidden="true"><path d="M10 29H80" fill="none" stroke="#1a8988" stroke-width="2.3" stroke-dasharray="14 8"/></svg></div><code>DASHED / HIDDEN</code><p>Pattern-aware line entities</p></div>
+            <div class="entity"><div class="entity-icon"><svg viewBox="0 0 90 58" aria-hidden="true"><text x="19" y="38" fill="#1a8988" font-size="27" font-family="Arial" font-weight="600">Aa</text></svg></div><code>TEXT</code><p>Recognized PDF text and optional OCR</p></div>
+          </div>
+          <div class="note warning"><strong>Review every sheet</strong><p>Look for missing lines, duplicate traces, open intersections, misidentified dashed patterns, circular details that should be arcs, and incorrect hatch boundaries. Use AutoCAD or Civil 3D to validate before engineering use.</p></div>
+        </section>
+
+        <section class="doc-section" id="hatch-editing">
+          <div class="section-kicker">06 / REPAIR TOOLS</div>
+          <h2>Repair a hatch boundary</h2>
+          <p class="lead">For sections with damaged or missing hatch borders, the app can create a manually bounded native HATCH without reconverting the entire source sheet.</p>
+          <ol class="numbered">
+            <li>Convert the sheet first. Open <strong>Review &amp; scale → Hatch editor</strong> in Studio, or the manual hatch controls on the classic Review ribbon.</li>
+            <li>Choose <strong>Use source pattern</strong>, <strong>Diagonal lines</strong>, <strong>Crosshatch</strong>, or <strong>Solid fill</strong>.</li>
+            <li>For a manually chosen line pattern, specify its angle and spacing in <strong>processed pixels</strong>. Start near the spacing visible in the original scan.</li>
+            <li>Click <strong>Draw hatch boundary</strong> and select three or more corners on the drawing. Use the wheel to zoom or hold Space and drag to pan.</li>
+            <li>Click <strong>Finish hatch</strong> or press Enter. Use <strong>Undo point</strong> while drawing or <strong>Undo hatch</strong> afterward to revert the most recent manual addition.</li>
+          </ol>
+          <div class="note"><strong>Replace matched source strokes</strong><p>This option is off by default. Enable it only if the region contains true hatch strokes that should be removed from the remaining geometry. Otherwise the original strokes can remain behind the newly created HATCH.</p></div>
+        </section>
+
+        <section class="doc-section" id="export">
+          <div class="section-kicker">07 / DELIVERY</div>
+          <h2>Layers and export</h2>
+          <p class="lead">Use the <strong>Layers</strong> tab to name the linework, text, and hatch layers. You can choose a drawing discipline preset and override detected dash groups to all DASHED or all HIDDEN.</p>
+          <div class="export-grid">
+            <div><div class="file-icon">DXF</div><h3>Download DXF</h3><p>Exports the selected converted sheet as editable CAD entities. Studio also provides a quick DXF button in the header after conversion.</p></div>
+            <div><div class="file-icon zip">ZIP</div><h3>Batch ZIP</h3><p>Downloads DXFs for completed sheets plus a <code>QA-manifest.json</code> with calibration, processing, and geometry-recognition diagnostics.</p></div>
+          </div>
+          <div class="note warning"><strong>DXF, not DWG</strong><p>Native DWG output and intelligent Civil 3D objects such as alignments, surfaces, and pipe networks are not supported. Open the DXF in AutoCAD or Civil 3D and save a DWG there if required.</p></div>
+        </section>
+
+        <section class="doc-section" id="troubleshooting">
+          <div class="section-kicker">08 / QUESTIONS</div>
+          <h2>Troubleshooting</h2>
+          <div class="faq">
+            <details><summary>My converted drawing is missing thin lines. What should I change?</summary><p>Try 200 DPI instead of 150 DPI, then Adaptive threshold if the source is faded. Reduce speckle cleanup and the minimum line length cautiously. Reconvert and compare in Overlay and Vectors only.</p></details>
+            <details><summary>Why are some curved objects made of segments?</summary><p>True CIRCLE fitting is limited to round features with enough visible evidence. An arc, ellipse, partial circle, or heavily obscured feature may remain a polyline. Confirm shape and radius manually in CAD.</p></details>
+            <details><summary>Why did a dashed utility line become a hidden line?</summary><p>The classifier recognizes a pattern of marks, not the engineering meaning. Use the detected linetype override in Layers for the selected sheet, then verify the result in CAD.</p></details>
+            <details><summary>Why didn't my hatch become a HATCH entity?</summary><p>The automatic detector needs a reliable closed boundary and consistent repeated strokes. For incomplete section borders, use Review &amp; scale → Hatch editor (Studio) to select a polygon and choose a pattern.</p></details>
+            <details><summary>The scale is wrong after exporting. What should I check?</summary><p>Confirm you selected the correct units, clicked the exact known endpoints, and measured a substantial distance. Recalibrate the sheet and check a second independent dimension in CAD. Calibration does not supply survey coordinates.</p></details>
+            <details><summary>Why is a large PDF taking so long?</summary><p>Large engineering sheets are processed tile by tile. Choose 150 DPI first, crop to the required drawing area, and disable OCR if you only need geometry. High DPI and OCR cost more CPU and memory.</p></details>
+            <details><summary>Can I export a DWG or Civil 3D surface?</summary><p>Not directly. Export DXF, open and check it in AutoCAD or Civil 3D, and save as DWG if needed. The app does not create parametric Civil 3D objects.</p></details>
+            <details><summary>Does the converter work offline?</summary><p>Conversion runs in your browser after the required code has loaded, but the app and some dependencies are hosted externally. Initial loading and optional OCR language-model downloads can require a network connection. Offline availability is not guaranteed.</p></details>
+          </div>
+        </section>
+
+        <section class="doc-section" id="privacy">
+          <div class="section-kicker">09 / SECURITY</div>
+          <h2>Privacy and limitations</h2>
+          <p class="lead">The converter is designed to process files locally in the browser. No application endpoint uploads your selected PDF, image, or generated DXF for conversion.</p>
+          <div class="privacy-box">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+            <div><strong>Your drawing processing stays local</strong><p>Libraries and optional OCR models can still be downloaded over the internet. Avoid adding confidential project files to public GitHub issues, shared links, or screenshots.</p></div>
+          </div>
+          <p>AsBuilt Vectorizer is an experimental drawing-reconstruction tool. Source quality, print scaling, skew, line joins, OCR, and recognition heuristics affect accuracy. The output is not survey-georeferenced, engineering certified, or a substitute for professional CAD review.</p>
+        </section>
+
+        <footer class="page-footer">
+          <div><strong>AsBuilt Vectorizer</strong><span>Help Center · Browser-local PDF to DXF</span></div>
+          <div class="footer-links"><a href="../studio-preview/">Open Studio</a><a href="../">Classic app</a><a href="https://github.com/acostavictor/asbuilt-vectorizer" target="_blank" rel="noopener noreferrer">GitHub repository ↗</a></div>
+        </footer>
+      </div>
+    </main>
+  </div>
+</body>
+</html>
