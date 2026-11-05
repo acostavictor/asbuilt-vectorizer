@@ -14,9 +14,22 @@ for i in range(0, len(lines), 2):
         assert lines[i+2] == '2', 'TABLE must start with code 2, not a handle'
         table_names.append(lines[i+3])
         assert lines[i+4] == '5'
-        assert lines[i+6:i+9] == ['100', 'AcDbSymbolTable', '70']
-        assert int(lines[i+9]) >= 0
-assert table_names == ['LTYPE', 'LAYER']
+        start = i+8 if lines[i+6] == '330' else i+6
+        assert lines[start:start+3] == ['100', 'AcDbSymbolTable', '70']
+        assert int(lines[start+3]) >= 0
+assert table_names == ['VPORT','LTYPE','LAYER','STYLE','VIEW','UCS','APPID','DIMSTYLE','BLOCK_RECORD']
+# Inspect essential records in raw tags, not just ezdxf's populated document.
+from ezdxf.lldxf.tags import Tags
+from ezdxf.lldxf.loader import load_dxf_structure
+raw = load_dxf_structure(iter(Tags.from_text(content.rstrip())))
+assert {'HEADER','CLASSES','TABLES','BLOCKS','ENTITIES','OBJECTS'} <= set(raw)
+required = {'LTYPE': {'BYBLOCK','BYLAYER','CONTINUOUS'}, 'LAYER': {'0'},
+            'STYLE': {'STANDARD'}, 'APPID': {'ACAD'}, 'DIMSTYLE': {'STANDARD'},
+            'BLOCK_RECORD': {'*MODEL_SPACE','*PAPER_SPACE'}}
+for table, names in required.items():
+    present = {str(tag.value).upper() for record in raw['TABLES']
+               if record[0].value == table for tag in record if tag.code == 2}
+    assert names <= present, (table, names - present)
 with tempfile.TemporaryDirectory() as directory:
     path = Path(directory) / 'synthetic.dxf'
     path.write_text(content, encoding='ascii')

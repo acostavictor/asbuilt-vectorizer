@@ -20,8 +20,8 @@ test("Detects regular long dash patterns and emits one complete DXF line",()=>{
   const out=buildDxf({width:500,height:150,styledPaths:result.styledPaths,unitsPerPixel:.1,units:"feet"});
   assert.equal(out.styledCount,1);
   assert.equal(out.lineTypeCounts.DASHED,1);
-  assert.match(out.content,/0\nLTYPE\n5\n[0-9A-F]+\n100\nAcDbSymbolTableRecord\n100\nAcDbLinetypeTableRecord\n2\nDASHED\n/);
-  assert.match(out.content,/0\nLINE\n5\n[0-9A-F]+\n100\nAcDbEntity\n8\nVEC-POLYLINES\n6\nDASHED\n/);
+  assert.match(out.content,/0\nLTYPE\n5\n[0-9A-F]+\n330\n[0-9A-F]+\n100\nAcDbSymbolTableRecord\n100\nAcDbLinetypeTableRecord\n2\nDASHED\n/);
+  assert.match(out.content,/0\nLINE\n5\n[0-9A-F]+\n330\n[0-9A-F]+\n100\nAcDbEntity\n8\nVEC-POLYLINES\n6\nDASHED\n/);
   assert.match(out.content,/49\n3\.2\n74\n0\n49\n-1\.3\n/);
 });
 test("Short regular strokes can be classified as HIDDEN geometry",()=>{
@@ -29,7 +29,7 @@ test("Short regular strokes can be classified as HIDDEN geometry",()=>{
   assert.equal(result.styledPaths.length,1);
   assert.equal(result.styledPaths[0].linetype,"HIDDEN");
   const dxf=buildDxf({width:300,height:300,styledPaths:result.styledPaths});
-  assert.match(dxf.content,/0\nLTYPE\n5\n[0-9A-F]+\n100\nAcDbSymbolTableRecord\n100\nAcDbLinetypeTableRecord\n2\nHIDDEN\n/);
+  assert.match(dxf.content,/0\nLTYPE\n5\n[0-9A-F]+\n330\n[0-9A-F]+\n100\nAcDbSymbolTableRecord\n100\nAcDbLinetypeTableRecord\n2\nHIDDEN\n/);
   assert.match(dxf.content,/6\nHIDDEN\n/);
 });
 test("Detection supports diagonal line patterns",()=>{
@@ -54,7 +54,7 @@ test("User can force all detected groups to HIDDEN or DASHED",()=>{
   const dxf=buildDxf({width:200,height:200,styledPaths:styled,lineTypeOverride:"DASHED",unitsPerPixel:1});
   assert.equal(dxf.lineTypeCounts.DASHED,1);
   assert.equal(dxf.lineTypeCounts.HIDDEN,0);
-  assert.doesNotMatch(dxf.content,/0\nLTYPE\n5\n[0-9A-F]+\n100\nAcDbSymbolTableRecord\n100\nAcDbLinetypeTableRecord\n2\nHIDDEN\n/);
+  assert.doesNotMatch(dxf.content,/0\nLTYPE\n5\n[0-9A-F]+\n330\n[0-9A-F]+\n100\nAcDbSymbolTableRecord\n100\nAcDbLinetypeTableRecord\n2\nHIDDEN\n/);
 });
 test("Disabled detection leaves the original polylines untouched",()=>{
   const paths=strokeTrain();
@@ -74,7 +74,7 @@ test("DXF has continuous geometry and style table together",()=>{
     styledPaths:styled,geometryLayer:"C-EXISTING"});
   assert.equal(out.geometryCount,2);
   assert.equal(out.lineTypes.length,1);
-  assert.match(out.content,/0\nLTYPE\n5\n[0-9A-F]+\n100\nAcDbSymbolTableRecord\n100\nAcDbLinetypeTableRecord\n2\nCONTINUOUS\n/);
+  assert.match(out.content,/0\nLTYPE\n5\n[0-9A-F]+\n330\n[0-9A-F]+\n100\nAcDbSymbolTableRecord\n100\nAcDbLinetypeTableRecord\n2\nCONTINUOUS\n/);
   assert.match(out.content,/6\nDASHED\n/);
   assert.match(out.content,/0\nEOF\n$/);
 });

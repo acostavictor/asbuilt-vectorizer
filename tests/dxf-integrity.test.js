@@ -53,8 +53,8 @@ test('One invalid sheet aborts ZIP download',async()=>{
 
 test('Civil 3D table headers put name code 2 before handle code 5',()=>{
  const content=buildDxf(sheet).content;
- const tables=[...content.matchAll(/^0\nTABLE\n2\n([^\n]+)\n5\n([0-9A-F]+)\n100\nAcDbSymbolTable\n70\n(\d+)\n/gm)];
- assert.deepEqual(tables.map(m=>m[1]),['LTYPE','LAYER']);
+ const tables=[...content.matchAll(/^0\nTABLE\n2\n([^\n]+)\n5\n([0-9A-F]+)\n330\n0\n100\nAcDbSymbolTable\n70\n(\d+)\n/gm)];
+ assert.deepEqual(tables.map(m=>m[1]),['VPORT','LTYPE','LAYER','STYLE','VIEW','UCS','APPID','DIMSTYLE','BLOCK_RECORD']);
  assert.equal(validateDxf(content).valid,true);
  // Reproduce the previous handle injection exactly: Civil 3D expected 2, received 5.
  const broken=content.replace(/0\nTABLE\n2\nLTYPE\n5\n([0-9A-F]+)\n/,'0\nTABLE\n5\n$1\n2\nLTYPE\n');

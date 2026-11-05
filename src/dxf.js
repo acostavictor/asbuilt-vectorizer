@@ -1,5 +1,6 @@
 // Minimal ASCII DXF R2000 writer. Layered lines, polylines, text and true linetype table.
 // Native DWG is not supported. All input coordinates are page-relative raster pixels.
+import {completeDrawing,validateDrawingStructure} from "./dxf-structure.js";
 import {effectiveLineType} from "./linetype.js";
 const clean=v=>String(v??"").replace(/[\r\n\x00-\x1f]/g," ").trim();
 const layerName=v=>clean(v).replace(/[<>\/\\":;?*|=,]/g,"_").slice(0,120)||"UNCLASSIFIED";
@@ -39,7 +40,7 @@ export function buildDxf({width,height,paths=[],circles=[],hatches=[],hatchLayer
     (t.height!==undefined&&(!Number.isFinite(t.height)||t.height<=0))||
     (t.rotation!==undefined&&!Number.isFinite(t.rotation)))throw Error("Invalid text coordinates or size");
   const geometry=layerName(geometryLayer),annotation=layerName(textLayer),hatched=layerName(hatchLayer);
-  const names=[...new Set([geometry,annotation,hatched,"QA-REVIEW","UNCLASSIFIED"])];
+  const names=[...new Set([geometry,annotation,hatched,"QA-REVIEW","UNCLASSIFIED","0"])];
   const indices={"QA-REVIEW":1,"ANNO-TEXT":2,"VEC-POLYLINES":4,"HATCH-REVIEW":8,"UNCLASSIFIED":7};
   const insunits={unitless:0,inches:1,feet:2,millimeters:4,centimeters:5,meters:6}[units]??0;
   const styles={};
@@ -150,11 +151,7 @@ export function buildDxf({width,height,paths=[],circles=[],hatches=[],hatchLayer
     textCount++;
   }
   d+=pair(0,"ENDSEC")+pair(0,"EOF");
-  // Explicit unique handles avoid reader-generated handles colliding with table heads.
-  let handle=1;
-  // TABLE is special: Autodesk requires its name (code 2) before its handle.
-  d=d.replace(/^0\nTABLE\n2\n([^\n]+)\n|^0\n(LTYPE|LAYER|LINE|LWPOLYLINE|CIRCLE|HATCH|TEXT)\n/gm,
-    (record)=>record+pair(5,(handle++).toString(16).toUpperCase()));
+  d=completeDrawing(d,insunits);
   const integrity=validateDxf(d);
   return {content:d,integrity,geometryCount:geometryCount.solid+geometryCount.styled+circleCount,textCount,circleCount,
     styledCount:geometryCount.styled,lineTypes:Object.keys(styles),lineTypeCounts:counts,
@@ -165,6 +162,7 @@ export function buildDxf({width,height,paths=[],circles=[],hatches=[],hatchLayer
 export function validateDxf(content){
   if(typeof content!=="string"||!content.endsWith("0\nEOF\n"))throw Error("DXF is truncated");
   const lines=content.trimEnd().split("\n");
+  validateDrawingStructure(content);
   if(lines.length%2)throw Error("DXF has an incomplete group pair");
   let section=false,entities=false,count=0,record=[];
   const subclasses={LINE:"AcDbLine",LWPOLYLINE:"AcDbPolyline",TEXT:"AcDbText",CIRCLE:"AcDbCircle",HATCH:"AcDbHatch"};
@@ -185,7 +183,8 @@ export function validateDxf(content){
         throw Error("DXF TABLE must begin with table name (code 2), before handle (code 5)");
       if(lines[i+4]!=="5"||!/^[0-9A-F]+$/i.test(lines[i+5]||""))
         throw Error("DXF TABLE is missing its handle after the table name");
-      if(lines[i+6]!=="100"||lines[i+7]!=="AcDbSymbolTable"||lines[i+8]!=="70")
+      const start=lines[i+6]==="330"?i+8:i+6;
+      if(lines[start]!=="100"||lines[start+1]!=="AcDbSymbolTable"||lines[start+2]!=="70")
         throw Error("Invalid DXF TABLE header");
     }
     if(c===0){

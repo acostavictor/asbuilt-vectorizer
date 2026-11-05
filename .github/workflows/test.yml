@@ -23,6 +23,8 @@ jobs:
           node --check src/tile-engine.js
           node --check src/viewport.js
           node --check src/dxf.js
+          node --check src/dxf-structure.js
+          node --check src/dxf-template.js
           node --check src/dimensions.js
           node --check src/dimension-ui.js
           node --check src/repair.js
