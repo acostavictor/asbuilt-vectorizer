@@ -83,6 +83,16 @@ export function analyzeRepairs(paths,{tolerance=3,duplicateTolerance=.85,
     add(endpointBins,bucket(v0,endpointCell),{seg,end:0,point:v0});
     add(endpointBins,bucket(v1,endpointCell),{seg,end:1,point:v1});
   }
+  // Junctions with three or more nearby branches are ambiguous, so they
+  // never qualify for a one-click low-risk join.
+  function endpointBranchCount(point,radius){
+    const ids=new Set();
+    for(const key of around(point,endpointCell))
+      for(const entry of endpointBins.get(key)||[])
+        if(distance(point,entry.point)<=radius)
+          ids.add(entry.seg.index+":"+entry.end);
+    return ids.size;
+  }
   const examined=new Set();
   for(const seg of segmentIndex){
     if(proposals.length>=maxProposals)break;
@@ -109,7 +119,9 @@ export function analyzeRepairs(paths,{tolerance=3,duplicateTolerance=.85,
               mergedLength>=seg.len+other.len-Math.min(1.4,tolerance*.4);
             if(collinear){
               const safe=gap<=Math.min(1.25,tolerance*.5)&&angle>.9998&&lateral<.42&&
-                Math.min(seg.len,other.len)>22;
+                Math.min(seg.len,other.len)>22&&
+                endpointBranchCount(point,Math.max(1.5,tolerance))===2&&
+                endpointBranchCount(item.point,Math.max(1.5,tolerance))===2;
               push("join",pair,pairSources,[[[...far],[...farOther]]],
                 [(point[0]+item.point[0])/2,(point[1]+item.point[1])/2],
                 gap,safe?.98:.88,safe,
