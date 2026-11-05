@@ -94,6 +94,7 @@ export function analyzeRepairs(paths,{tolerance=3,duplicateTolerance=.85,
           const other=item.seg;
           if(other.index===seg.index)continue;
           const pair=[seg.index,other.index].sort((a,b)=>a-b);
+          const pairSources=seg.index<other.index?[seg.path,other.path]:[other.path,seg.path];
           const key=pair[0]+":"+pair[1];if(examined.has(key))continue;
           examined.add(key);
           const gap=distance(point,item.point);
@@ -109,7 +110,7 @@ export function analyzeRepairs(paths,{tolerance=3,duplicateTolerance=.85,
             if(collinear){
               const safe=gap<=Math.min(1.25,tolerance*.5)&&angle>.9998&&lateral<.42&&
                 Math.min(seg.len,other.len)>22;
-              push("join",pair,[seg.path,other.path],[[...far],[...farOther]],
+              push("join",pair,pairSources,[[...far],[...farOther]],
                 [(point[0]+item.point[0])/2,(point[1]+item.point[1])/2],
                 gap,safe?.98:.88,safe,
                 safe?"Small, nearly exact collinear gap with no line reversal.":
@@ -130,7 +131,7 @@ export function analyzeRepairs(paths,{tolerance=3,duplicateTolerance=.85,
           if(deltaA>seg.len*.2||deltaB>other.len*.2)continue;
           const newA=clone(seg.path),newB=clone(other.path);
           newA[endA]=crossAt.slice();newB[endB]=crossAt.slice();
-          push("corner",pair,[seg.path,other.path],[newA,newB],crossAt,
+          push("corner",pair,pairSources,seg.index<other.index?[newA,newB]:[newB,newA],crossAt,
             Math.max(deltaA,deltaB),.76,false,
             "Extended or trimmed two angled endpoints to their shared intersection. Review before applying.");
         }
