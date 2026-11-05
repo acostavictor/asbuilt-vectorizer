@@ -24,7 +24,7 @@ function sections(items){
  }
  return result;
 }
-export function completeDrawing(partial,insunits){
+export function completeDrawing(partial,insunits,{textHeight}={}){
  const source=sections(records(partial)),base=records(drawingTemplate);
  const reserved=base.flat().filter(t=>t[0]===5||t[0]===105).map(t=>parseInt(t[1],16));
  let next=Math.max(...reserved)+1;
@@ -69,7 +69,26 @@ export function completeDrawing(partial,insunits){
    }
   }
  }
+ if(textHeight!==undefined){
+  const style=result.find(r=>r[0][1]==='STYLE'&&value(r,2)==='SIMPLEX');
+  const dimension=result.find(r=>r[0][1]==='DIMSTYLE'&&value(r,2)==='Standard');
+  const headerIndex=result.findIndex(r=>r[0][1]==='TABLE'&&value(r,2)==='DIMSTYLE');
+  if(style&&dimension&&headerIndex>=0){
+   const dimensionStyle=dimension.map(t=>t.slice());
+   for(const [code,data] of [[105,handle()],[2,'SIMPLEX'],[140,String(textHeight)],[340,value(style,5)]]){
+    const tag=dimensionStyle.find(t=>t[0]===code);if(tag)tag[1]=data;else dimensionStyle.push([code,data]);
+   }
+   let end=headerIndex+1;while(result[end][0][1]!=='ENDTAB')end++;
+   result.splice(end,0,dimensionStyle);
+   const count=result[headerIndex].find(t=>t[0]===70);count[1]=String(Number(count[1])+1);
+  }
+ }
  let content=serialize(result);
+ if(textHeight!==undefined){
+  content=content.replace(/9\n\$TEXTSTYLE\n7\n[^\n]+\n/,pair(9,'$TEXTSTYLE')+pair(7,'SIMPLEX'));
+  content=content.replace(/9\n\$TEXTSIZE\n40\n[^\n]+\n/,pair(9,'$TEXTSIZE')+pair(40,textHeight));
+ }
+ if(textHeight!==undefined)content=content.replace(/9\n\$DIMSTYLE\n2\n[^\n]+\n/,pair(9,'$DIMSTYLE')+pair(2,'SIMPLEX'));
  content=content.replace(/9\n\$INSUNITS\n70\n[^\n]+\n/,pair(9,'$INSUNITS')+pair(70,insunits));
  content=content.replace(/9\n\$HANDSEED\n5\n[^\n]+\n/,pair(9,'$HANDSEED')+pair(5,next.toString(16).toUpperCase()));
  return content;

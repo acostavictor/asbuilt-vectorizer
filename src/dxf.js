@@ -16,8 +16,16 @@ function makeLinetype(name,pattern){
   pair(72,65)+pair(73,pattern.length)+pair(40,number(pattern.reduce((sum,x)=>sum+Math.abs(x),0)))+
   pattern.map(x=>pair(49,number(x))+pair(74,0)).join("");
 }
+export function annotationHeight(units="unitless",heightInches=.1,scale=1){
+ if(!Number.isFinite(heightInches)||heightInches<=0||!Number.isFinite(scale)||scale<=0)throw Error("Invalid annotation height or plot scale");
+ const factors={unitless:1,inches:1,feet:1/12,millimeters:25.4,centimeters:2.54,meters:.0254};
+ if(!(units in factors))throw Error("Unsupported annotation units");
+ const height=heightInches*scale*factors[units];
+ if(!Number.isFinite(height)||height<=0)throw Error("Invalid annotation height");
+ return height;
+}
 export function buildDxf({width,height,paths=[],circles=[],hatches=[],hatchLayer="HATCH-REVIEW",styledPaths=[],lineTypeOverride="auto",
-  texts=[],unitsPerPixel=1,geometryLayer="VEC-POLYLINES",
+  texts=[],textHeightInches=.1,annotationScale=1,unitsPerPixel=1,geometryLayer="VEC-POLYLINES",
   textLayer="ANNO-TEXT",units="unitless",originX=0,originY=0}){
   if(!Number.isFinite(unitsPerPixel)||unitsPerPixel<=0)throw Error("Invalid calibration scale");
   if(!Number.isFinite(height)||height<=0||!Number.isFinite(width)||width<=0)
@@ -36,6 +44,7 @@ export function buildDxf({width,height,paths=[],circles=[],hatches=[],hatchLayer
   for(const t of texts)if(!t||!Number.isFinite(t.x)||!Number.isFinite(t.y)||
     (t.height!==undefined&&(!Number.isFinite(t.height)||t.height<=0))||
     (t.rotation!==undefined&&!Number.isFinite(t.rotation)))throw Error("Invalid text coordinates or size");
+  const textHeight=annotationHeight(units,textHeightInches,annotationScale);
   const geometry=layerName(geometryLayer),annotation=layerName(textLayer),hatched=layerName(hatchLayer);
   const names=[...new Set([geometry,annotation,hatched,"QA-REVIEW","UNCLASSIFIED","0"])];
   const indices={"QA-REVIEW":1,"ANNO-TEXT":2,"VEC-POLYLINES":4,"HATCH-REVIEW":8,"UNCLASSIFIED":7};
@@ -67,7 +76,10 @@ export function buildDxf({width,height,paths=[],circles=[],hatches=[],hatchLayer
   }
   d+=pair(0,"ENDTAB")+pair(0,"TABLE")+pair(2,"LAYER")+pair(100,"AcDbSymbolTable")+pair(70,names.length);
   for(const name of names)d+=pair(0,"LAYER")+pair(100,"AcDbSymbolTableRecord")+pair(100,"AcDbLayerTableRecord")+pair(2,name)+pair(70,0)+pair(62,indices[name]??7)+pair(6,"CONTINUOUS");
-  d+=pair(0,"ENDTAB")+pair(0,"ENDSEC")+pair(0,"SECTION")+pair(2,"ENTITIES");
+  d+=pair(0,"ENDTAB")+pair(0,"TABLE")+pair(2,"STYLE")+pair(100,"AcDbSymbolTable")+pair(70,1)+
+    pair(0,"STYLE")+pair(100,"AcDbSymbolTableRecord")+pair(100,"AcDbTextStyleTableRecord")+
+    pair(2,"SIMPLEX")+pair(70,0)+pair(40,0)+pair(41,1)+pair(50,0)+pair(71,0)+pair(42,textHeight)+pair(3,"simplex.shx")+pair(4,"")+
+    pair(0,"ENDTAB")+pair(0,"ENDSEC")+pair(0,"SECTION")+pair(2,"ENTITIES");
   const map=p=>[originX+p[0]*unitsPerPixel,originY+(height-p[1])*unitsPerPixel];
   const counts=Object.fromEntries(LINE_TYPES.map(type=>[type,0])),geometryCount={solid:0,styled:0};let textCount=0;
   function addPath(path,linetype=null){
@@ -146,14 +158,14 @@ export function buildDxf({width,height,paths=[],circles=[],hatches=[],hatchLayer
     const txt=clean(item.value).slice(0,240);if(!txt)continue;
     const pt=map([item.x,item.y]);
     d+=pair(0,"TEXT")+pair(100,"AcDbEntity")+pair(8,annotation)+pair(100,"AcDbText")+coords(pt[0],pt[1])+
-      pair(40,number(Math.max(.01,(item.height||10)*unitsPerPixel)))+
+      pair(40,number(textHeight))+pair(7,"SIMPLEX")+
       pair(1,txt.replace(/[^\x20-\x7e]/g,"?"))+pair(50,number(item.rotation||0))+pair(100,"AcDbText");
     textCount++;
   }
   d+=pair(0,"ENDSEC")+pair(0,"EOF");
-  d=completeDrawing(d,insunits);
+  d=completeDrawing(d,insunits,{textHeight});
   const integrity=validateDxf(d);
-  return {content:d,integrity,geometryCount:geometryCount.solid+geometryCount.styled+circleCount,textCount,circleCount,
+  return {content:d,integrity,textStyle:"SIMPLEX",textHeight,textHeightInches,annotationScale,geometryCount:geometryCount.solid+geometryCount.styled+circleCount,textCount,circleCount,
     styledCount:geometryCount.styled,lineTypes:Object.keys(styles),lineTypeCounts:counts,
     linePatterns,hatchCount,solidHatchCount,crossHatchCount,hatchLayer:hatched,layers:names,insunits};
 }

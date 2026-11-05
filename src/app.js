@@ -1,4 +1,4 @@
-import {buildDxf,filenameBase,uniqueDxfName} from "./dxf.js";
+import {buildDxf,filenameBase,uniqueDxfName,annotationHeight} from "./dxf.js";
 import {rotatedDimensionOcr,normalizeDimensionOcr} from "./ocr-dimensions.js";
 import {detectPrintedDimensions} from "./dimensions.js";
 import {excludeDimensions} from "./annotation-cleanup.js";
@@ -80,7 +80,7 @@ async function ensurePdf(){
 }
 function blankSheet(file,name,type,extra={}){
   return {file,name,type,status:"pending",paths:[],sourcePaths:[],circles:[],circleStats:null,contourStats:null,
-    manualHatchSpecs:[],manualHatchResults:[],hatches:[],hatchStats:null,straightStats:null,styledPaths:[],patternStats:null,lineTypeOverride:"auto",texts:[],dimensions:[],dimensionDetection:null,width:0,height:0,
+    manualHatchSpecs:[],manualHatchResults:[],hatches:[],hatchStats:null,straightStats:null,styledPaths:[],patternStats:null,lineTypeOverride:"auto",textHeightInches:.1,annotationScale:1,texts:[],dimensions:[],dimensionDetection:null,width:0,height:0,
     scale:1,calibrated:false,units:"unitless",roi:null,processingDpi:null,tilesProcessed:0,watermarkDetected:false,geometryLayer:presets[$("preset").value][0],
     textLayer:presets[$("preset").value][1],hatchLayer:"HATCH-REVIEW",warning:"",...extra};
 }
@@ -390,6 +390,8 @@ function applySheetSettings(){
   $("geometryLayer").value=sheet.geometryLayer;$("textLayer").value=sheet.textLayer;
   $("hatchLayer").value=sheet.hatchLayer;
   $("lineTypeOverride").value=sheet.lineTypeOverride||"auto";
+  $("textHeightInches").value=sheet.textHeightInches??.1;
+  $("annotationScale").value=sheet.annotationScale??1;
 }
 async function selectSheet(i,force=false){
   if(i<0||i>=state.sheets.length)return;
@@ -538,7 +540,7 @@ function drawVectors(){
   ctx.strokeStyle=vectorOnly?"#e8bb5e":"#d68a21";
   for(const item of sheet.texts){
     if(!item.value?.trim())continue;
-    const textHeight=Math.max(7,Math.min(120,item.height||11));
+    const textHeight=annotationHeight(sheet.units,sheet.textHeightInches??.1,sheet.annotationScale??1)/sheet.scale;
     ctx.font=textHeight+"px Arial, sans-serif";
     ctx.save();ctx.translate(item.x,item.y);
     if(item.rotation)ctx.rotate(-(item.rotation*Math.PI/180));
@@ -599,6 +601,7 @@ function makeDxf(s){
   return buildDxf({width:s.width,height:s.height,paths:s.paths,circles:s.circles||[],
     hatches:s.hatches||[],hatchLayer:s.hatchLayer||"HATCH-REVIEW",styledPaths:s.styledPaths||[],
     lineTypeOverride:s.lineTypeOverride||"auto",texts:s.texts,
+    textHeightInches:s.textHeightInches??.1,annotationScale:s.annotationScale??1,
     unitsPerPixel:s.scale,units:s.units,geometryLayer:s.geometryLayer,textLayer:s.textLayer});
 }
 function download(blob,name){
@@ -631,7 +634,7 @@ async function exportZip(){
           JSON.stringify(repairUI.report(s),null,2));
       }
       manifest.push({name:s.name,output:name,entities:output.geometryCount,texts:output.textCount,
-        integrity:output.integrity,layers:output.layers,units:s.units,calibrated:s.calibrated,unitsPerPixel:s.scale,
+        integrity:output.integrity,textStyle:output.textStyle,textHeight:output.textHeight,textHeightInches:output.textHeightInches,annotationScale:output.annotationScale,layers:output.layers,units:s.units,calibrated:s.calibrated,unitsPerPixel:s.scale,
         pageRelativeCoordinates:true,processingDpi:s.processingDpi,tilesProcessed:s.tilesProcessed,
         linetypes:output.lineTypeCounts,linetypePatterns:output.linePatterns,
         annotationCleanup:s.annotationCleanup||null,patternRecognition:s.patternStats||null,linetypeOverride:s.lineTypeOverride,
@@ -706,6 +709,12 @@ $("preset").addEventListener("change",()=>{
 syncValue("geometryLayer","geometryLayer",v=>!!v.trim());
 syncValue("textLayer","textLayer",v=>!!v.trim());
 syncValue("hatchLayer","hatchLayer",v=>!!v.trim());
+for(const id of ["textHeightInches","annotationScale"])$(id).addEventListener("change",()=>{
+ const sheet=state.sheets[state.selected];if(!sheet)return;
+ const value=Number($(id).value);
+ if(!Number.isFinite(value)||value<=0){$(id).value=sheet[id]??(id==="annotationScale"?1:.1);status("Enter a positive annotation height or plot scale.");return;}
+ sheet[id]=value;drawVectors();status("Simplex text size updated. Export again to apply it to CAD text.");
+});
 $("lineTypeOverride").addEventListener("change",()=>{
   const sheet=state.sheets[state.selected];if(!sheet)return;
   sheet.lineTypeOverride=$("lineTypeOverride").value;

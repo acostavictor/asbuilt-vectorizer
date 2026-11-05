@@ -65,6 +65,18 @@ with tempfile.TemporaryDirectory() as directory:
         assert actual == expected, (name, actual)
         assert next(t.value for t in record if t.code == 73) == len(expected)
         assert next(t.value for t in record if t.code == 40) == sum(map(abs,expected))
+    import math
+    simplex = doc.styles.get('SIMPLEX')
+    assert simplex.dxf.font.lower() == 'simplex.shx'
+    for text in doc.modelspace().query('TEXT'):
+        assert text.dxf.style == 'SIMPLEX'
+        assert math.isclose(text.dxf.height, .1/12, rel_tol=1e-12)
+    dimension_style = doc.dimstyles.get('SIMPLEX')
+    assert dimension_style.dxf.dimtxsty == 'SIMPLEX'  # ezdxf resolves the raw handle to a style name
+    raw_style = next(r for r in raw['TABLES'] if r[0].value == 'DIMSTYLE'
+                     and any(t.code == 2 and t.value == 'SIMPLEX' for t in r))
+    assert next(t.value for t in raw_style if t.code == 340) == simplex.dxf.handle
+    assert math.isclose(dimension_style.dxf.dimtxt, .1/12, rel_tol=1e-12)
     poly = doc.modelspace().query('LWPOLYLINE').first
     assert list(poly.get_points('xy')) == [(0.5,49.5),(2.5,46.0),(6.0,45.0)]
     print(f'ezdxf {ezdxf.__version__}: {len(entities)} entities; zero audit errors; zero audit repairs')

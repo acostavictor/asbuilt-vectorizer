@@ -276,3 +276,24 @@ Centerline recognition joins small collinear junction fragments, searches adjace
 angle/intercept buckets, and accepts two visible long/short cycles with wider gaps.
 Crossing perpendicular lines remain separate. Cropped, obscured or insufficiently
 repeated patterns can still remain as ordinary linework.
+
+## Uniform Simplex annotation style
+
+Exported native/OCR text and recognized dimension labels use SIMPLEX
+(`simplex.shx`) and a uniform 0.10-inch height instead of the scanned font size.
+The DXF also includes a SIMPLEX dimension style with matching DIMTXT/DIMTXSTY,
+and selects it as the default for future CAD dimensions. Detected raster dimension
+linework remains linework; it is not converted into native DIMENSION entities.
+
+In Layers, set Text height (inches) and Plot scale 1:n. Default 1:1 produces an
+actual model-space height of 0.10 inches (0.0083333333 feet or 2.54 mm). For a
+0.10-inch printed height at 1 inch = 20 feet, use 1:240, yielding a 2-foot model
+text height. Set drawing units and calibrate geometry before export; unitless
+exports treat one drawing unit as one inch for this annotation conversion.
+
+These settings apply immediately to the active sheet's next single/ZIP export;
+reconversion is unnecessary for already recognized text. Text-removal options
+continue to omit text. Unrecognized lettering that remains raster linework cannot
+receive a CAD text font. The browser uses an approximate font; Civil 3D renders
+`simplex.shx`. The SHX font is referenced, not bundled. These are model-space text
+heights, not annotative text objects.

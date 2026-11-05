@@ -160,9 +160,14 @@
         <label class="ribbon-field wide">Text layer<input id="textLayer" value="ANNO-TEXT" maxlength="120"></label>
         <label class="ribbon-field wide">Hatch layer<input id="hatchLayer" value="HATCH-REVIEW" maxlength="120"></label>
         <label class="ribbon-select">Detected linetypes<select id="lineTypeOverride" title="Override the type of all detected dashed-line groups on this sheet">
-          <option value="auto">Auto (review)</option><option value="DASHED">All DASHED</option><option value="HIDDEN">All HIDDEN</option><option value="CENTER">All CENTER</option><option value="PHANTOM">All PHANTOM</option><option value="DASHDOT">All DASHDOT</option><option value="CENTER">All CENTER</option><option value="PHANTOM">All PHANTOM</option><option value="DASHDOT">All DASHDOT</option>
+          <option value="auto">Auto (review)</option><option value="DASHED">All DASHED</option><option value="HIDDEN">All HIDDEN</option><option value="CENTER">All CENTER</option><option value="PHANTOM">All PHANTOM</option><option value="DASHDOT">All DASHDOT</option>
         </select></label>
       </div><div class="ribbon-group-label">DXF layer assignment</div></div>
+      <div class="ribbon-group"><div class="ribbon-controls">
+        <label class="ribbon-field">Text height (inches)<input id="textHeightInches" type="number" value="0.10" min="0.001" step="0.01"></label>
+        <label class="ribbon-field">Plot scale 1 : n<input id="annotationScale" type="number" value="1" min="0.001" step="1" title="1 = actual 0.10 inch model height; 240 = 0.10 inch printed height at 1 inch = 20 feet"></label>
+        <span class="ribbon-note">CAD font: Simplex. At 1:1, 0.10 inches is actual model height. Choose drawing units first. Browser font is approximate.</span>
+      </div><div class="ribbon-group-label">Text &amp; dimension label style</div></div>
     </section>
     <section class="ribbon-pane" id="panel-export" role="tabpanel" aria-labelledby="tab-export">
       <div class="ribbon-group"><div class="ribbon-controls">
