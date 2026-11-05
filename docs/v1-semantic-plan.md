@@ -1,6 +1,6 @@
 # VecBuilt: Version 1 sketch: from raster tracer to semantic drawing set
 
-## Where v0.7 stands (grounded in the repo, not assumed)
+## Where v0.8 stands (grounded in the repo, not assumed)
 
 The app at `acostavictor/asbuilt-vectorizer` (v0.6.0, `main`) already does the hard
 geometry work, client-side, with no upload endpoint:
