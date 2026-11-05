@@ -24,3 +24,21 @@ Validation:
 
 The original online viewer was not identified and has not been tested directly.
 The independent parser reproduces the structural failure and accepts the correction.
+
+## Civil 3D TABLE ordering regression
+
+Civil 3D 2026 reported "Expected dxf code 2, received 5" at line 26.
+The generic handle injection placed code 5 immediately after 0/TABLE, ahead
+of 2/table-name. Autodesk requires 0/TABLE, 2/name, 5/handle, 100/AcDbSymbolTable,
+70/count. ezdxf accepted the malformed order without audit repairs, so an audit
+alone was insufficient. Handle injection now treats TABLE headers separately;
+pre-download validation and both Node/Python tests enforce the raw header order.
+The browser single/ZIP handlers are tested to block this exact malformed output.
+
+Validation: 107 Node tests pass; ezdxf strict load/audit still reports eight
+synthetic entities, zero errors and zero repairs. Civil 3D itself was not available
+for an application-level reopen test. Previously downloaded files must be
+re-exported with the corrected writer.
+
+Autodesk reference:
+https://help.autodesk.com/cloudhelp/2020/ENU/AutoCAD-DXF/files/GUID-5AB9300F-F0AC-4ADE-89EA-A9D1D152D8B8.htm

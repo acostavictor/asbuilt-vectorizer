@@ -50,3 +50,22 @@ test('One invalid sheet aborts ZIP download',async()=>{
  const h=harness([sheet,{...sheet,height:NaN}]);await h.ctx.exportZip();
  assert.equal(h.downloads.length,0);assert.match(h.messages.at(-1),/ZIP export error/);
 });
+
+test('Civil 3D table headers put name code 2 before handle code 5',()=>{
+ const content=buildDxf(sheet).content;
+ const tables=[...content.matchAll(/^0\nTABLE\n2\n([^\n]+)\n5\n([0-9A-F]+)\n100\nAcDbSymbolTable\n70\n(\d+)\n/gm)];
+ assert.deepEqual(tables.map(m=>m[1]),['LTYPE','LAYER']);
+ assert.equal(validateDxf(content).valid,true);
+ // Reproduce the previous handle injection exactly: Civil 3D expected 2, received 5.
+ const broken=content.replace(/0\nTABLE\n2\nLTYPE\n5\n([0-9A-F]+)\n/,'0\nTABLE\n5\n$1\n2\nLTYPE\n');
+ assert.throws(()=>validateDxf(broken),/table name \(code 2\)/);
+});
+test('Single and ZIP downloads reject the reported malformed TABLE ordering',async()=>{
+ const content=buildDxf(sheet).content.replace(/0\nTABLE\n2\nLTYPE\n5\n([0-9A-F]+)\n/,'0\nTABLE\n5\n$1\n2\nLTYPE\n');
+ for(const action of ['exportSelected','exportZip']){
+  const h=harness([sheet]);
+  h.ctx.buildDxf=()=>{validateDxf(content);throw Error('Should reject malformed table');};
+  await h.ctx[action]();assert.equal(h.downloads.length,0);
+  assert.match(h.messages.at(-1),/code 2/);
+ }
+});

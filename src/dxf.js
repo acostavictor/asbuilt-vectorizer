@@ -152,7 +152,8 @@ export function buildDxf({width,height,paths=[],circles=[],hatches=[],hatchLayer
   d+=pair(0,"ENDSEC")+pair(0,"EOF");
   // Explicit unique handles avoid reader-generated handles colliding with table heads.
   let handle=1;
-  d=d.replace(/^0\n(TABLE|LTYPE|LAYER|LINE|LWPOLYLINE|CIRCLE|HATCH|TEXT)\n/gm,
+  // TABLE is special: Autodesk requires its name (code 2) before its handle.
+  d=d.replace(/^0\nTABLE\n2\n([^\n]+)\n|^0\n(LTYPE|LAYER|LINE|LWPOLYLINE|CIRCLE|HATCH|TEXT)\n/gm,
     (record)=>record+pair(5,(handle++).toString(16).toUpperCase()));
   const integrity=validateDxf(d);
   return {content:d,integrity,geometryCount:geometryCount.solid+geometryCount.styled+circleCount,textCount,circleCount,
@@ -179,6 +180,14 @@ export function validateDxf(content){
     if(!/^\d+$/.test(lines[i]))throw Error("Invalid DXF group code");
     const c=Number(lines[i]),v=lines[i+1];
     if(((c>=10&&c<=59)||(c>=90&&c<=99))&&(!v.trim()||!Number.isFinite(Number(v))))throw Error("Invalid DXF numeric value");
+    if(c===0&&v==="TABLE"){
+      if(lines[i+2]!=="2"||!lines[i+3]?.trim())
+        throw Error("DXF TABLE must begin with table name (code 2), before handle (code 5)");
+      if(lines[i+4]!=="5"||!/^[0-9A-F]+$/i.test(lines[i+5]||""))
+        throw Error("DXF TABLE is missing its handle after the table name");
+      if(lines[i+6]!=="100"||lines[i+7]!=="AcDbSymbolTable"||lines[i+8]!=="70")
+        throw Error("Invalid DXF TABLE header");
+    }
     if(c===0){
       if(entities){check();record=[];}
       if(v==="SECTION"){if(section)throw Error("Nested DXF section");section=true;entities=lines[i+3]==="ENTITIES";}
