@@ -1,10 +1,12 @@
 # AsBuilt Vectorizer
 
-## Studio interface redesign preview
+## Default interface and Help Center
 
-A second, fully functional interface is available at **[Studio preview](https://acostavictor.github.io/asbuilt-vectorizer/studio-preview/)**. The current production interface remains available at the repository root.
+**Studio is now the default application** at **[AsBuilt Vectorizer](https://acostavictor.github.io/asbuilt-vectorizer/)**. The earlier ribbon layout is preserved at **[Classic interface](https://acostavictor.github.io/asbuilt-vectorizer/classic/)**.
 
-The redesign follows the published [StageShow](https://github.com/benjitaylor/skills/tree/main/stageshow) UI craft principles: one focal workspace, quieter chrome, more deliberate hierarchy, and progressive disclosure of advanced controls. StageShow itself is primarily for *product UI illustrations*, not a production PDF conversion runtime. The preview uses ordinary HTML/CSS and the existing \`src/app.js\` processing engine, with no StageShow package dependency.
+A full **[Help Center](https://acostavictor.github.io/asbuilt-vectorizer/help/)** covers importing files, scan settings, zoom/pan, scale calibration, circles, HATCH and dashed-line reconstruction, manual hatch editing, CAD layers, DXF/ZIP export, troubleshooting, privacy, and engineering QA. A Help link is visible in both application headers. The historical [Studio preview URL](https://acostavictor.github.io/asbuilt-vectorizer/studio-preview/) remains available for existing links.
+
+The redesign follows the published [StageShow](https://github.com/benjitaylor/skills/tree/main/stageshow) UI craft principles: one focal workspace, quieter chrome, more deliberate hierarchy, and progressive disclosure of advanced controls. StageShow itself is primarily for *product UI illustrations*, not a production PDF conversion runtime. The Studio uses ordinary HTML/CSS and the existing \`src/app.js\` processing engine, with no StageShow package dependency.
 
 **What changed:**
 - Cleaner, slimmer navigation and a compact command row
@@ -15,7 +17,7 @@ The redesign follows the published [StageShow](https://github.com/benjitaylor/sk
 - One-click empty-state import, quieter drawing properties and sheet queue
 - Mobile-aware arrangement, with the original canvas zoom/pan, PDF import, raster recognition, calibration, layer management and DXF export preserved
 
-**Test both interfaces before replacing the default.** The Studio page is a design preview, not a validated release, and must be tested on actual as-built scans in a browser. Feature improvements in \`src/app.js\` are shared by both interfaces. Do not upload confidential project PDFs to the repository.
+**The Studio is now the default UI.** It is still a pre-release converter and must be tested on actual as-built scans in a browser. Feature improvements in \`src/app.js\` are shared by both interfaces. Do not upload confidential project PDFs to the repository.
 
 
 Browser-based, **client-side** PDF/image-to-layered-DXF proof of concept for engineering drawings. The selected drawings are processed in the user's browser, with no application upload endpoint.
