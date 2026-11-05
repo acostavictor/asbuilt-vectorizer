@@ -8,13 +8,14 @@
   <link rel="icon" type="image/svg+xml" href="../assets/logo-mark.svg">
   <title>VecBuilt | Classic interface</title>
   <link rel="stylesheet" href="../src/ui.css">
+  <link rel="stylesheet" href="../src/dimensions.css">
 </head>
 <body>
 <header class="app-header">
   <div class="identity"><img class="logo-img" src="../assets/logo-mark-header.svg" alt="" aria-hidden="true">
     <div><span class="brand-title">VecBuilt</span><span class="brand-sub">Engineering drawing studio</span></div></div>
   <div class="app-top-status"><span class="lock"></span><p id="jobStatus" role="status" aria-live="polite">Open a PDF or scanned drawing to begin.</p></div>
-  <div class="header-actions"><span class="header-pill">Local browser processing</span><a class="app-help-link" href="../">Studio</a><a class="app-help-link" href="../help/" aria-label="Open VecBuilt Help Center">? Help</a><span class="header-version">Classic v0.6</span></div>
+  <div class="header-actions"><span class="header-pill">Local browser processing</span><a class="app-help-link" href="../">Studio</a><a class="app-help-link" href="../help/" aria-label="Open VecBuilt Help Center">? Help</a><span class="header-version">Classic v0.7</span></div>
 </header>
 
 <nav class="ribbon-shell" aria-label="Drawing tools">
@@ -22,6 +23,7 @@
     <button class="ribbon-tab" id="tab-home" role="tab" aria-controls="panel-home" aria-selected="true" data-ribbon="home">Home</button>
     <button class="ribbon-tab" id="tab-convert" role="tab" aria-controls="panel-convert" aria-selected="false" data-ribbon="convert">Convert</button>
     <button class="ribbon-tab" id="tab-review" role="tab" aria-controls="panel-review" aria-selected="false" data-ribbon="review">Review &amp; scale</button>
+    <button class="ribbon-tab" id="tab-dimensions" role="tab" aria-controls="panel-dimensions" aria-selected="false" data-ribbon="dimensions">Dimensions</button>
     <button class="ribbon-tab" id="tab-layers" role="tab" aria-controls="panel-layers" aria-selected="false" data-ribbon="layers">Layers</button>
     <button class="ribbon-tab" id="tab-export" role="tab" aria-controls="panel-export" aria-selected="false" data-ribbon="export">Export</button>
     <div class="ribbon-end"><button id="toggleInspector" class="ribbon-button" type="button" aria-pressed="true" title="Show or hide the drawing properties">Hide properties</button></div>
@@ -108,6 +110,23 @@
         <button id="crop" class="ribbon-button large" type="button"><svg viewBox="0 0 24 24"><path d="M6 2v16a2 2 0 0 0 2 2h14M2 6h16a2 2 0 0 1 2 2v14"/></svg>Select drawing area</button>
         <button id="clearCrop" class="ribbon-button" type="button">Clear area</button>
       </div><div class="ribbon-group-label">Focus on geometry</div></div>
+    </section>
+    <section class="ribbon-pane" id="panel-dimensions" role="tabpanel" aria-labelledby="tab-dimensions">
+      <div class="ribbon-group"><div class="ribbon-controls">
+        <button id="scanDimensions" class="ribbon-button primary" type="button">Find dimensions</button>
+        <button id="dimToggleDrawer" class="ribbon-button" type="button">Review findings</button>
+      </div><div class="ribbon-group-label">Dimension QA</div></div>
+      <div class="ribbon-group"><div class="ribbon-controls">
+        <button id="dimPick" class="ribbon-button" type="button" disabled>Pick endpoints</button>
+        <button id="dimReset" class="ribbon-button" type="button" disabled>Clear manual points</button>
+      </div><div class="ribbon-group-label">Measure selected note</div></div>
+      <div class="ribbon-group"><div class="ribbon-controls">
+        <label class="ribbon-field">Tolerance (%)<input id="dimTolerancePercent" type="number" min="0" max="25" step="0.1" value="1"></label>
+        <label class="ribbon-field">Minimum tolerance (units)<input id="dimToleranceAbsolute" type="number" min="0" max="10000" step="any" value="0.05"></label>
+      </div><div class="ribbon-group-label">Comparison tolerance</div></div>
+      <div class="ribbon-group"><div class="ribbon-controls">
+        <button id="dimDownloadCSV" class="ribbon-button" type="button" disabled>Download QA CSV</button>
+      </div><div class="ribbon-group-label">Audit report</div></div>
     </section>
     <section class="ribbon-pane" id="panel-layers" role="tabpanel" aria-labelledby="tab-layers">
       <div class="ribbon-group"><div class="ribbon-controls">
@@ -198,6 +217,27 @@
     <section class="inspector-section"><h3>Drawing area</h3><p class="inspector-small" id="cropHint">Entire drawing selected. Optionally choose a region in Review &amp; scale.</p></section>
     <section class="inspector-section"><h3>Review checklist</h3><div class="inspector-help">Compare <b>Original</b> and <b>Vectors only</b>. Check fine linework, junctions, annotations, and at least one independent dimension before export.</div></section>
     <section class="inspector-section"><div class="inspector-warning">Experimental conversion. Drawings are not georeferenced or engineering-certified. Always validate DXF geometry before design or construction.</div></section>
+  </aside>
+  <aside class="dimension-drawer" id="dimensionDrawer" aria-label="Dimension validation results" hidden>
+    <div class="dimension-drawer-header">
+      <div><span class="dimension-eyebrow">DRAWING QA</span><h2>Dimension review</h2></div>
+      <button id="dimCloseDrawer" class="dimension-icon-button" type="button" title="Close dimension review" aria-label="Close dimension review">×</button>
+    </div>
+    <div id="dimensionSummary" class="dimension-summary" role="status">Convert a drawing to find printed dimensions.</div>
+    <div class="dimension-drawer-note">Automatic matches are provisional. Confirm endpoints against the source drawing, then approve the finding.</div>
+    <div class="dimension-result-list" id="dimensionList" aria-label="Detected dimension notes"></div>
+    <section class="dimension-detail" id="dimensionDetail" hidden>
+      <div class="dimension-detail-heading">SELECTED DIMENSION <span id="dimSelectedId"></span></div>
+      <label class="dimension-detail-label" for="dimEditLabel">Printed measurement <input id="dimEditLabel" type="text" maxlength="48" spellcheck="false"></label>
+      <div id="dimDetailMetrics" class="dimension-detail-metrics">Select a measurement to review.</div>
+      <div class="dimension-detail-actions">
+        <button id="dimPickDrawer" type="button">Pick two endpoints</button>
+        <button id="dimConfirm" type="button">Confirm review</button>
+        <button id="dimIgnore" type="button">Ignore note</button>
+      </div>
+      <p id="dimDetailMessage" class="dimension-detail-footnote">Confirming acknowledges human review; it does not override a mismatch.</p>
+    </section>
+    <div class="dimension-drawer-bottom">Compare printed measurements against calibrated geometry. Missing or mismatched dimensions must be reviewed in CAD.</div>
   </aside>
 </main>
 <footer class="bottom-status"><span id="coordinateStatus">Page-relative coordinates · not calibrated</span><span class="local">◈ Drawing data stays in this browser</span><span>DXF output · DWG unavailable</span></footer>
