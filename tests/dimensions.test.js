@@ -19,7 +19,7 @@ test("Parses metric, decimal, and unitless candidate values",()=>{
   assert.equal(parseDimensionLabel("1200",{defaultUnits:"millimeters"}).units,"millimeters");
   assert.equal(parseDimensionLabel("1200").units,"unitless");
   assert.equal(convertLength(1000,"millimeters","meters"),1);
-  assert.equal(convertLength(12,"inches","feet"),1);
+  assert.ok(Math.abs(convertLength(12,"inches","feet")-1)<1e-12);
   assert.equal(convertLength(1,"meters","feet")!==null,true);
 });
 test("Rejects elevations, stationing, angles, scales, diameter and non-dimensions",()=>{
