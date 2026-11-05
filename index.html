@@ -5,15 +5,16 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0f2538">
   <meta name="description" content="Private browser-local conversion of scanned engineering as-builts into editable DXF drawings.">
-  <title>AsBuilt Vectorizer | Drafting workspace</title>
+  <title>AsBuilt Vectorizer | Studio</title>
   <link rel="stylesheet" href="./src/ui.css">
+  <link rel="stylesheet" href="./studio-preview/studio.css">
 </head>
-<body>
+<body data-design="studio">
 <header class="app-header">
   <div class="identity"><span class="logo" aria-hidden="true">AV</span>
-    <div><span class="brand-title">AsBuilt Vectorizer</span><span class="brand-sub">Engineering drawing studio</span></div></div>
+    <div><span class="brand-title">AsBuilt Vectorizer</span><span class="brand-sub">PDF to precision CAD</span></div></div>
   <div class="app-top-status"><span class="lock"></span><p id="jobStatus" role="status" aria-live="polite">Open a PDF or scanned drawing to begin.</p></div>
-  <div class="header-actions"><span class="header-pill">Local browser processing</span><span class="header-version">Preview v0.6</span></div>
+  <div class="header-actions"><span class="header-pill">Local browser processing</span><button type="button" class="studio-quick-export" id="studioExport" disabled aria-label="Download selected DXF"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v13m-5-5 5 5 5-5M4 17v4h16v-4"/></svg> Export DXF</button><a class="app-help-link" href="./help/" aria-label="Open AsBuilt Vectorizer Help Center">? Help</a><a class="app-help-link app-classic-link" href="./classic/" title="Open classic interface">Classic</a><span class="header-version">Studio v0.6</span></div>
 </header>
 
 <nav class="ribbon-shell" aria-label="Drawing tools">
@@ -156,8 +157,8 @@
         <path d="M68 32H232M68 28v8m164-8v8M281 45v40m-4-40h8m-8 40h8" stroke="#c5ab65" stroke-width="1"/>
         <circle cx="159" cy="65" r="4" stroke="#67e2d9" stroke-width="1.5"/>
       </svg>
-        <div class="empty-title">Your drawing workspace is ready</div>
-        <div class="empty-copy">Use <b>Home → Add drawings</b> to import a PDF or scanned image. Preview, zoom, convert and calibrate without uploading your files.</div>
+        <div class="empty-title">Your drawing. Rebuilt for CAD.</div>
+        <div class="empty-copy">Import a scanned plan to inspect geometry, calibrate dimensions and export editable CAD elements. Processing stays in your browser.</div><button type="button" class="studio-empty-action" id="studioImport">Import a drawing <span aria-hidden="true">↗</span></button><div class="studio-empty-meta">PDF, PNG or JPG · Up to 50 sheets</div>
       </div>
       <div class="stage" id="stage" hidden><canvas id="imageCanvas"></canvas><canvas id="vectorCanvas"></canvas></div>
       <div class="floating-tools" role="toolbar" aria-label="Zoom and drawing navigation">
@@ -202,6 +203,7 @@
 <footer class="bottom-status"><span id="coordinateStatus">Page-relative coordinates · not calibrated</span><span class="local">◈ Drawing data stays in this browser</span><span>DXF output · DWG unavailable</span></footer>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/6.0.1/tesseract.min.js" crossorigin="anonymous"></script>
+<script src="./studio-preview/studio.js"></script>
 <script type="module" src="./src/app.js"></script>
 </body>
 </html>
