@@ -6,6 +6,7 @@ import {recognizeCircles} from "./circles.js";
 import {repairNearClosedContours,validatePolygon,applyManualHatches} from "./hatch-repair.js";
 import {createDrawingViewport} from "./viewport.js";
 import {setupDimensionUI} from "./dimension-ui.js";
+import {setupRepairUI} from "./repair-ui.js";
 import {planTiles,normalizeRoi,clipToTileAndRoi,isEditorWatermark,looksLikeEditorUrl,overlaps,dedupeText} from "./tile-engine.js";
 
 const $=id=>document.getElementById(id);
@@ -19,6 +20,12 @@ const viewport=createDrawingViewport({
 const dimensionUI=setupDimensionUI({
   getSheet:()=>state.sheets[state.selected],viewport,status,redraw:drawVectors,download,
   showOverlay:()=>setView("overlay")
+});
+const repairUI=setupRepairUI({
+  getSheet:()=>state.sheets[state.selected],
+  viewport,status,redraw:drawVectors,showOverlay:()=>setView("overlay"),
+  onGeometryChanged:()=>dimensionUI.onScaleChanged(),
+  refreshStats:updateStats
 });
 const presets={
   generic:["VEC-POLYLINES","ANNO-TEXT"],civil:["C-UNCLASSIFIED","C-ANNO"],
@@ -336,6 +343,9 @@ async function convertSheet(i){
 }
 function rebuildSheetGeometry(sheet){
   if(!Array.isArray(sheet.sourcePaths))return;
+  // Prior cleanup edits target the previous geometry indices; rebuilding hatch
+  // classifications invalidates them. Never silently replay stale repairs.
+  repairUI.resetSheet(sheet);
   // Manual repairs are applied to source linework; the remaining regions can
   // still be classified automatically. Never re-rasterize the PDF here.
   const manual=applyManualHatches(sheet.sourcePaths,sheet.manualHatchSpecs||[]);
@@ -369,7 +379,7 @@ async function selectSheet(i,force=false){
   $("calibrate").textContent="Pick two points";$("crop").textContent="Select drawing area";
   cancelHatchDrawing();
   const s=state.sheets[i];applySheetSettings();updateList();$("previewTitle").textContent=s.name;
-  dimensionUI.onSheetChanged();
+  dimensionUI.onSheetChanged();repairUI.onSheetChanged();
   viewport.setTool("pan");
   const token=++state.token;
   if(!force&&s.previewToken===token)return;
@@ -388,6 +398,7 @@ function updateStats(){
   const s=state.sheets[state.selected];if(!s)return;
   $("previewStats").textContent=(s.paths.length||0)+" vectors · "+(s.texts.length||0)+" text entities · "+s.status+
     (s.dimensions?.length?" · "+s.dimensions.length+" dimension candidates":"")+
+    (s.repairSession?.accepted?.length?" · "+s.repairSession.accepted.length+" CAD repairs":"")+
     (s.tilesProcessed?" · "+s.tilesProcessed+" tiles":"")+
     (s.processingDpi?" · "+s.processingDpi+" DPI":"")+
     (s.styledPaths?.length?" · "+s.styledPaths.length+" reconstructed dash runs":"")+
@@ -550,6 +561,7 @@ function drawVectors(){
     }
   }
   dimensionUI.drawOverlay(ctx,sheet,sx,sy);
+  repairUI.drawOverlay(ctx,sheet,sx,sy);
   $("imageCanvas").style.opacity=vectorOnly?"1":state.view==="overlay"?"0.51":"1";
   $("imageCanvas").style.display=vectorOnly?"none":"block";
   canvas.style.display=state.view==="original"?"none":"block";
@@ -595,6 +607,10 @@ async function exportZip(){
       if(s.dimensions?.length){
         zip.file("dimension-QA/"+filenameBase(s.name)+"-dimensions.csv",dimensionUI.report(s));
       }
+      if(s.repairSession?.scan){
+        zip.file("repair-QA/"+filenameBase(s.name)+"-repairs.json",
+          JSON.stringify(repairUI.report(s),null,2));
+      }
       manifest.push({name:s.name,output:name,entities:output.geometryCount,texts:output.textCount,
         layers:output.layers,units:s.units,calibrated:s.calibrated,unitsPerPixel:s.scale,
         pageRelativeCoordinates:true,processingDpi:s.processingDpi,tilesProcessed:s.tilesProcessed,
@@ -607,6 +623,7 @@ async function exportZip(){
         hatchRecognition:s.hatchStats||null,straightening:s.straightStats||null,
         dimensions:dimensionUI.stats(s),dimensionDetection:s.dimensionDetection||null,
         dimensionChecks:dimensionUI.details(s),
+        cadRepair:repairUI.report(s),
         dimensionTolerance:{relativePercent:Number($("dimTolerancePercent").value),
           absoluteDrawingUnits:Number($("dimToleranceAbsolute").value)},
         drawingArea:s.roi,watermarkDetected:s.watermarkDetected,
@@ -657,7 +674,7 @@ $("exportZip").addEventListener("click",exportZip);
 $("clear").addEventListener("click",()=>{
   if(state.busy)return;state.sheets=[];state.selected=-1;state.token++;state.calibration=null;
   $("stage").hidden=true;$("empty").hidden=false;$("previewTitle").textContent="No drawing selected";
-  cancelHatchDrawing();dimensionUI.reset();
+  cancelHatchDrawing();dimensionUI.reset();repairUI.reset();
   viewport.reset();$("inspectorState").textContent="No sheet";
   $("previewStats").textContent="No sheet selected";$("progress").style.width="0";status("Files cleared from this page.");
   updateList();
@@ -761,6 +778,7 @@ function invalidateConversion(s){
     s.status="pending";s.paths=[];s.sourcePaths=[];s.circles=[];s.circleStats=null;s.contourStats=null;
     s.manualHatchSpecs=[];s.manualHatchResults=[];s.hatches=[];s.hatchStats=null;s.straightStats=null;
     s.styledPaths=[];s.patternStats=null;s.texts=[];s.dimensions=[];s.dimensionDetection=null;
+    repairUI.resetSheet(s);
     s.warning="Drawing area changed; reconvert this sheet.";
     s.tilesProcessed=0;s.processingDpi=null;updateList();
   }
