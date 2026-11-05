@@ -10,11 +10,27 @@ VecBuilt's mark is a vector path V with anchor-point nodes, with raster pixels d
 
 Full usage notes live in [`docs/LOGO.md`](docs/LOGO.md). The repository and Pages URLs still use the old `asbuilt-vectorizer` slug; only the display name changed.
 
+## v0.7: Printed dimension recognition and QA validation
+
+**Dimensions** is now a separate ribbon tab in the default Studio, the Studio preview, and Classic. It works entirely in the browser and does not depend on a vision API or upload project data.
+
+**Workflow:** Convert the PDF/image (enable optional OCR for scanned text), calibrate with a trusted known dimension and choose the correct units, open Dimensions → Find dimensions, review the proposed matches, and export a dimension QA CSV or batch ZIP.
+
+- **Text recognition:** parses common linear annotations: decimal feet/inches/meters/millimeters/centimeters, apostrophe/double-quote imperial notation, and fractional inches (e.g., \`12'-6 1/2"\`). Rejects clearly non-linear scale, station, elevation, radius, percentage and degree strings. Numeric-only notes are candidates, not proof of dimension intent.
+- **Conservative association:** proposes endpoints only when a numeric note is close to a reconstructed line that has two approximately perpendicular witness/extension lines. If the source geometry is broken, it keeps the label **unmatched**, not guessed. The annotation remains an ordinary DXF TEXT entity; native associative DXF DIMENSION objects are **not** created in this version.
+- **Review:** click a note to center its location on the PDF; edit a misread OCR label, manually add a missed note, pick two endpoints at any zoom level, ignore non-dimension notes, and confirm review. Confirmation never changes or conceals a reported mismatch.
+- **Comparison:** after calibration, measure the endpoint distance in the sheet's drawing units. Convert explicitly stated label units when necessary. Statuses include within tolerance, mismatch, unmatched, uncalibrated, missing units, unreadable and ignored.
+- **Tolerance:** configurable percentage (default 1%) and absolute drawing-unit minimum (default 0.05). The allowed difference is the **larger** of those. These are review defaults only, not an AEC discipline-specific contractual tolerance.
+- **Overlay:** potential dimension notes have color-coded markers; select one to see the exact inferred or manually picked measurement endpoints.
+- **QA export:** per-sheet CSV includes printed, expected and measured values, signed delta, tolerance, review state, source and point coordinates. A batch ZIP additionally contains \`dimension-QA/<sheet>-dimensions.csv\` and \`QA-manifest.json\` dimension counts, comparison details and tolerance settings. All findings require independent CAD review.
+
+**Important:** Printed vs measured agreement is only a preliminary check. The calibration reference itself cannot independently validate that same dimension. OCR misreads, raster distortion, interrupted witness lines, angled measurement conventions, scaled viewports, or duplicate labels can create false matches/mismatches. Do not interpret \`Reviewed\` as engineering approval. Source drawings and DXFs remain page-relative and must be checked in AutoCAD/Civil 3D before design or construction use.
+
 ## Default interface and Help Center
 
 **Studio is now the default application** at **[VecBuilt](https://acostavictor.github.io/asbuilt-vectorizer/)**. The earlier ribbon layout is preserved at **[Classic interface](https://acostavictor.github.io/asbuilt-vectorizer/classic/)**.
 
-A full **[Help Center](https://acostavictor.github.io/asbuilt-vectorizer/help/)** covers importing files, scan settings, zoom/pan, scale calibration, circles, HATCH and dashed-line reconstruction, manual hatch editing, CAD layers, DXF/ZIP export, troubleshooting, privacy, and engineering QA. A Help link is visible in both application headers. The historical [Studio preview URL](https://acostavictor.github.io/asbuilt-vectorizer/studio-preview/) remains available for existing links.
+A full **[Help Center](https://acostavictor.github.io/asbuilt-vectorizer/help/)** covers importing files, scan settings, zoom/pan, scale calibration, circles, HATCH and dashed-line reconstruction, dimension QA, manual hatch editing, CAD layers, DXF/ZIP export, troubleshooting, privacy, and engineering QA. A Help link is visible in both application headers. The historical [Studio preview URL](https://acostavictor.github.io/asbuilt-vectorizer/studio-preview/) remains available for existing links.
 
 The redesign follows the published [StageShow](https://github.com/benjitaylor/skills/tree/main/stageshow) UI craft principles: one focal workspace, quieter chrome, more deliberate hierarchy, and progressive disclosure of advanced controls. StageShow itself is primarily for *product UI illustrations*, not a production PDF conversion runtime. The Studio uses ordinary HTML/CSS and the existing \`src/app.js\` processing engine, with no StageShow package dependency.
 
