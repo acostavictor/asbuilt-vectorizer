@@ -251,6 +251,11 @@ export function setupRepairUI({getSheet,viewport,status,redraw,showOverlay,onGeo
     else if(active)close();
   }));
   render();
-  return {render,onSheetChanged,resetSheet,report,drawOverlay,
+  function reset(){
+    active=false;selectedId=null;drawer.hidden=true;
+    $("repairStatus").textContent="Convert a sheet to inspect linework.";
+    render();
+  }
+  return {render,onSheetChanged,resetSheet,reset,report,drawOverlay,
     get active(){return active;},get selected(){return chosen();}};
 }
