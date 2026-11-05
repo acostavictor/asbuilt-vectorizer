@@ -71,3 +71,25 @@ confirmed; a clean parser audit is not a substitute for that check.
 
 Structural reference:
 https://ezdxf.readthedocs.io/en/stable/dxfinternals/filestructure.html
+
+## Layer PlotStyleName reference
+
+Comparison with a user-supplied working AutoCAD DXF confirmed that every layer
+references a plot-style object using code 390 and supplies a lineweight using
+code 370. The scaffold layers already had those fields, but newly inserted custom
+layers did not inherit them, causing Civil 3D to report "Did not receive
+PlotStyleName" in the LAYER table.
+
+New layers now inherit codes 370 and 390 from the scaffold's layer 0. The handle
+points to the scaffold's existing Normal plot-style placeholder and dictionary;
+no handles or records are copied from the private reference drawing. Raw validation
+requires each layer's plot-style reference, checks that it resolves to a registered
+ACDBPLACEHOLDER, and rejects missing, dangling and wrong-type references. The Python
+raw-tag check verifies the same linkage before parser normalization.
+
+112 Node tests pass; synthetic ezdxf audit reports zero errors/repairs. Private
+reference and repaired drawing files remain outside the repository. Civil 3D
+application-level confirmation is still required.
+
+Autodesk LAYER specification:
+https://help.autodesk.com/cloudhelp/2015/ENU/AutoCAD-DXF/files/GUID-D94802B0-8BE8-4AC9-8054-17197688AFDB.htm

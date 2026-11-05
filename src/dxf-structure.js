@@ -46,7 +46,20 @@ export function completeDrawing(partial,insunits){
    const names=new Set(existing.map(r=>value(r,2).toUpperCase()));
    const extra=additions.get(value(record,2)).filter(r=>{const name=value(r,2).toUpperCase();if(names.has(name))return false;names.add(name);return true;});
    const owner=value(record,5);
-   const entries=extra.map(r=>[r[0],[5,handle()],[330,owner],...r.slice(1)]);
+   const defaultLayer=existing.find(r=>r[0][1]==='LAYER'&&value(r,2)==='0');
+   const entries=extra.map(r=>{
+    const fields=r.slice(1);
+    // R2000 custom layers need the same lineweight and plot-style linkage as layer 0.
+    // Reuse the scaffold's valid reference; never copy handles from a user's drawing.
+    if(r[0][1]==='LAYER')for(const code of [370,390]){
+     if(!fields.some(t=>t[0]===code)){
+      const fallback=defaultLayer?.find(t=>t[0]===code);
+      if(!fallback)throw Error('Default DXF layer is missing field '+code);
+      fields.push(fallback.slice());
+     }
+    }
+    return [r[0],[5,handle()],[330,owner],...fields];
+   });
    const header=record.map(t=>t[0]===70?[70,String(existing.length+entries.length)]:t);
    result.push(header,...existing,...entries,base[j]);i=j;
   }else{
@@ -89,7 +102,18 @@ export function validateDrawingStructure(content){
   if(h){if(handles.has(h))throw Error('Duplicate DXF handle '+h);handles.add(h);}
  }
  for(const r of items)for(const [code,target] of r)
-  if([330,340,350,360].includes(code)&&target!=='0'&&!handles.has(target))throw Error('Unresolved DXF handle '+target);
+  if([330,340,350,360,390].includes(code)&&target!=='0'&&!handles.has(target))throw Error('Unresolved DXF handle '+target);
+ const objects=new Map(parts.get('OBJECTS').map(r=>[value(r,5),r]));
+ const styles=parts.get('OBJECTS').find(r=>r[0][1]==='ACDBDICTIONARYWDFLT'&&
+  r.some(t=>t[0]===3&&t[1]==='Normal'));
+ const styleHandles=new Set(styles?.filter(t=>t[0]===350).map(t=>t[1]));
+ for(const layer of tables.get('LAYER')){
+  const plotStyle=value(layer,390);
+  if(!plotStyle)throw Error('DXF LAYER missing PlotStyleName (code 390)');
+  if(objects.get(plotStyle)?.[0][1]!=='ACDBPLACEHOLDER'||!styleHandles.has(plotStyle))
+   throw Error('DXF LAYER PlotStyleName does not resolve to a registered plot style');
+  if(value(layer,370)===undefined)throw Error('DXF LAYER missing lineweight (code 370)');
+ }
  // HEADER variables are attached to its SECTION record.
  const head=items.find(r=>r[0][1]==='SECTION'&&value(r,2)==='HEADER');
  const seedIndex=head.findIndex(t=>t[0]===9&&t[1]==='$HANDSEED');

@@ -30,6 +30,18 @@ for table, names in required.items():
     present = {str(tag.value).upper() for record in raw['TABLES']
                if record[0].value == table for tag in record if tag.code == 2}
     assert names <= present, (table, names - present)
+# Check each serialized layer, including custom layers, before the reader can default it.
+objects = {next((str(t.value) for t in record if t.code == 5), ''): record
+           for record in raw['OBJECTS']}
+styles = next(record for record in raw['OBJECTS']
+              if record[0].value == 'ACDBDICTIONARYWDFLT'
+              and any(t.code == 3 and t.value == 'Normal' for t in record))
+style_handles = {str(t.value) for t in styles if t.code == 350}
+for layer in (record for record in raw['TABLES'] if record[0].value == 'LAYER'):
+    ref = next((str(t.value) for t in layer if t.code == 390), None)
+    assert ref in style_handles, 'LAYER missing registered PlotStyleName'
+    assert objects[ref][0].value == 'ACDBPLACEHOLDER'
+    assert any(t.code == 370 for t in layer), 'LAYER missing lineweight'
 with tempfile.TemporaryDirectory() as directory:
     path = Path(directory) / 'synthetic.dxf'
     path.write_text(content, encoding='ascii')
