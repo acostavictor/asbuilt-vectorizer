@@ -23,12 +23,13 @@
   </header>
   <div class="layout">
     <aside class="toc" aria-label="Help topics">
-      <div class="toc-title">DOCUMENTATION <span>v0.6</span></div>
+      <div class="toc-title">DOCUMENTATION <span>v0.7</span></div>
       <nav>
         <a href="#overview">Overview</a>
         <a href="#quick-start">Quick start</a>
         <a href="#navigation">Zoom, pan &amp; selection</a>
         <a href="#calibration">Scale calibration</a>
+        <a href="#dimension-qa">Dimension QA</a>
         <a href="#conversion">Conversion settings</a>
         <a href="#cad-geometry">CAD entities &amp; QA</a>
         <a href="#hatch-editing">Hatch boundary repair</a>
@@ -45,7 +46,7 @@
       <div class="main-inner">
         <div class="breadcrumb"><a href="../">Studio</a><span>/</span> Help Center</div>
         <section class="hero" id="overview">
-          <div class="eyebrow">USER GUIDE <span class="eyebrow-line"></span> ASBUILT VECTORIZER</div>
+          <div class="eyebrow">USER GUIDE <span class="eyebrow-line"></span> VECBUILT</div>
           <h1>From scanned drawing<br>to editable CAD.</h1>
           <p>Everything you need to import an as-built PDF, reconstruct linework, calibrate it, and export a reviewable DXF. Follow the workflow below to get started.</p>
           <div class="hero-actions">
@@ -112,6 +113,21 @@
             </ol>
           </div>
           <div class="note warning"><strong>Not georeferencing</strong><p>Two-point calibration sets a measurement scale. It does not establish survey control, coordinate-system location, rotation, or real-world georeferencing.</p></div>
+        </section>
+
+        <section class="doc-section" id="dimension-qa">
+          <div class="section-kicker">04 / MEASUREMENT QA</div>
+          <h2>Recognize and validate dimensions</h2>
+          <p class="lead">VecBuilt detects printed linear measurements from PDF text or optional OCR, looks for a nearby dimension line with two witness/extension lines, and compares the measured geometry against the label after the sheet is calibrated.</p>
+          <div class="steps">
+            <article class="step"><span class="step-number">01</span><div><h3>Convert with OCR when needed</h3><p>Scanned-image dimensions have no editable text layer. Turn on <strong>Convert → Recognize printed text (OCR)</strong> and reconvert the sheet. Native PDF text may be detected without OCR.</p></div><span class="step-meta">CONVERT</span></article>
+            <article class="step"><span class="step-number">02</span><div><h3>Calibrate from a trusted dimension</h3><p>Set drawing units under <strong>Review &amp; scale</strong>, and pick two endpoints for one reliable measurement. Do not validate the same reference dimension against its own calibration without an independent check.</p></div><span class="step-meta">CALIBRATE</span></article>
+            <article class="step"><span class="step-number">03</span><div><h3>Open Dimensions</h3><p>Choose the <strong>Dimensions</strong> ribbon tab, then <strong>Find dimensions</strong>. The review drawer lists potential dimensions, automatically associated lines, mismatches, and measurements still needing endpoints.</p></div><span class="step-meta">RECOGNIZE</span></article>
+            <article class="step"><span class="step-number">04</span><div><h3>Review and correct</h3><p>Select a note to center it in the viewport. Check the OCR reading, edit the printed value if necessary, or use <strong>Pick endpoints</strong> and click the two measured points directly in the drawing. You can also add a missing note manually.</p></div><span class="step-meta">REVIEW</span></article>
+            <article class="step"><span class="step-number">05</span><div><h3>Validate the difference</h3><p>VecBuilt compares the printed dimension with the measured distance using the larger of <strong>percentage tolerance</strong> and <strong>minimum tolerance in drawing units</strong>. The default settings are 1% and 0.05 drawing units. These are initial review settings, not acceptance tolerances for all projects.</p></div><span class="step-meta">COMPARE</span></article>
+            <article class="step"><span class="step-number">06</span><div><h3>Export evidence</h3><p>Download a dimension QA CSV or export a batch ZIP containing per-sheet dimension reports and a JSON manifest. Confirm review on each resolved measurement. A mismatch stays flagged after confirmation; it is not automatically corrected or approved.</p></div><span class="step-meta">REPORT</span></article>
+          </div>
+          <div class="note warning"><strong>Important limitations</strong><p>Automatic association requires a recognizable dimension line and both perpendicular witness lines. Numeric notes such as elevations, grid references, stationing, radii, and leader callouts may not be recognized as linear dimensions. The feature does not create native associative DXF DIMENSION entities. A matching value is provisional until reviewed, and verified units and independent scale checks are essential.</p></div>
         </section>
 
         <section class="doc-section" id="conversion">
