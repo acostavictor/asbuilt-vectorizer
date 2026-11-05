@@ -1,9 +1,9 @@
 {
   "name": "vecbuilt",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "private": true,
   "type": "module",
-  "description": "Client-side scanned PDF to native DXF line, circle and hatch entities",
+  "description": "Browser-local raster-to-DXF with dimension recognition and measurement QA",
   "scripts": {
     "test": "node --test tests/*.test.js",
     "start": "python3 -m http.server 8080"
