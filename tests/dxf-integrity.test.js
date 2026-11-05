@@ -69,3 +69,9 @@ test('Single and ZIP downloads reject the reported malformed TABLE ordering',asy
   assert.match(h.messages.at(-1),/code 2/);
  }
 });
+test('Per-sheet unanswered plot scale blocks selected and batch downloads',async()=>{
+ for(const action of ['exportSelected','exportZip']){
+  const h=harness([{...sheet,annotationScale:null}]);await h.ctx[action]();
+  assert.equal(h.downloads.length,0);assert.match(h.messages.at(-1),/Choose this sheet.*plot scale/);
+ }
+});

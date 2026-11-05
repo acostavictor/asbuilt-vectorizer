@@ -165,9 +165,10 @@
         </select></label>
       </div><div class="ribbon-group-label">DXF layer assignment</div></div>
       <div class="ribbon-group"><div class="ribbon-controls">
-        <label class="ribbon-field">Text height (inches)<input id="textHeightInches" type="number" value="0.10" min="0.001" step="0.01"></label>
-        <label class="ribbon-field">Plot scale 1 : n<input id="annotationScale" type="number" value="1" min="0.001" step="1" title="1 = actual 0.10 inch model height; 240 = 0.10 inch printed height at 1 inch = 20 feet"></label>
-        <span class="ribbon-note">CAD font: Simplex. At 1:1, 0.10 inches is actual model height. Choose drawing units first. Browser font is approximate.</span>
+        <label class="ribbon-field">Printed text height (inches)<input id="textHeightInches" type="number" value="0.10" min="0.001" step="0.01"></label>
+        <label class="ribbon-field">Plot scale 1 : n<input id="annotationScale" type="number" placeholder="Choose scale" min="0.001" step="1" title="1 = actual 0.10 inch model height; 240 = 0.10 inch printed height at 1 inch = 20 feet"></label>
+        <button id="setSheetScale" class="ribbon-button" type="button">Set sheet scale</button>
+        <span class="ribbon-note">Each sheet has its own plot scale. Simplex text prints at 0.10 inches. Calibrate geometry separately.</span>
       </div><div class="ribbon-group-label">Text &amp; dimension label style</div></div>
     </section>
     <section class="ribbon-pane" id="panel-export" role="tabpanel" aria-labelledby="tab-export">

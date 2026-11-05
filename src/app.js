@@ -1,3 +1,4 @@
+import {askSheetPlotScales} from "./sheet-scale.js";
 import {buildDxf,filenameBase,uniqueDxfName,annotationHeight} from "./dxf.js";
 import {rotatedDimensionOcr,normalizeDimensionOcr} from "./ocr-dimensions.js";
 import {detectPrintedDimensions} from "./dimensions.js";
@@ -80,13 +81,14 @@ async function ensurePdf(){
 }
 function blankSheet(file,name,type,extra={}){
   return {file,name,type,status:"pending",paths:[],sourcePaths:[],circles:[],circleStats:null,contourStats:null,
-    manualHatchSpecs:[],manualHatchResults:[],hatches:[],hatchStats:null,straightStats:null,styledPaths:[],patternStats:null,lineTypeOverride:"auto",textHeightInches:.1,annotationScale:1,texts:[],dimensions:[],dimensionDetection:null,width:0,height:0,
+    manualHatchSpecs:[],manualHatchResults:[],hatches:[],hatchStats:null,straightStats:null,styledPaths:[],patternStats:null,lineTypeOverride:"auto",textHeightInches:.1,annotationScale:null,texts:[],dimensions:[],dimensionDetection:null,width:0,height:0,
     scale:1,calibrated:false,units:"unitless",roi:null,processingDpi:null,tilesProcessed:0,watermarkDetected:false,geometryLayer:presets[$("preset").value][0],
     textLayer:presets[$("preset").value][1],hatchLayer:"HATCH-REVIEW",warning:"",...extra};
 }
 async function ingest(files){
   if(state.busy)return;
   busy(true);
+  const firstNewSheet=state.sheets.length;
   let rejected=0;const errors=[];
   try{
     for(const file of files){
@@ -109,6 +111,10 @@ async function ingest(files){
   }finally{busy(false);}
   updateList();
   if(state.selected<0&&state.sheets.length)await selectSheet(0);
+  if(state.sheets.length>firstNewSheet){
+    busy(true);try{await askSheetPlotScales(state.sheets.slice(firstNewSheet));}finally{busy(false);}
+    applySheetSettings();drawVectors();
+  }
   status(state.sheets.length+" sheets ready."+(rejected?" Additional sheets exceeded the 50-sheet limit.":"")+
     (errors.length?" Errors: "+errors.slice(0,2).join("; "):"")+" Files remain in this browser.");
 }
@@ -391,7 +397,7 @@ function applySheetSettings(){
   $("hatchLayer").value=sheet.hatchLayer;
   $("lineTypeOverride").value=sheet.lineTypeOverride||"auto";
   $("textHeightInches").value=sheet.textHeightInches??.1;
-  $("annotationScale").value=sheet.annotationScale??1;
+  $("annotationScale").value=sheet.annotationScale??"";
 }
 async function selectSheet(i,force=false){
   if(i<0||i>=state.sheets.length)return;
@@ -598,6 +604,7 @@ function setView(view){
 }
 function makeDxf(s){
   if(s.status!=="done")throw Error("Sheet must be converted first");
+  if(s.annotationScale===null)throw Error("Choose this sheet’s plot scale under Layers → Set sheet scale before exporting 0.10-inch printed text.");
   return buildDxf({width:s.width,height:s.height,paths:s.paths,circles:s.circles||[],
     hatches:s.hatches||[],hatchLayer:s.hatchLayer||"HATCH-REVIEW",styledPaths:s.styledPaths||[],
     lineTypeOverride:s.lineTypeOverride||"auto",texts:s.texts,
@@ -709,6 +716,11 @@ $("preset").addEventListener("change",()=>{
 syncValue("geometryLayer","geometryLayer",v=>!!v.trim());
 syncValue("textLayer","textLayer",v=>!!v.trim());
 syncValue("hatchLayer","hatchLayer",v=>!!v.trim());
+$("setSheetScale").addEventListener("click",async()=>{
+ const sheet=state.sheets[state.selected];if(!sheet||state.busy)return;
+ busy(true);try{await askSheetPlotScales([sheet]);}finally{busy(false);}
+ applySheetSettings();drawVectors();status("Sheet plot-scale settings updated. Geometry calibration is separate.");
+});
 for(const id of ["textHeightInches","annotationScale"])$(id).addEventListener("change",()=>{
  const sheet=state.sheets[state.selected];if(!sheet)return;
  const value=Number($(id).value);

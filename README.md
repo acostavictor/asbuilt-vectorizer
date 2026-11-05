@@ -285,7 +285,7 @@ The DXF also includes a SIMPLEX dimension style with matching DIMTXT/DIMTXSTY,
 and selects it as the default for future CAD dimensions. Detected raster dimension
 linework remains linework; it is not converted into native DIMENSION entities.
 
-In Layers, set Text height (inches) and Plot scale 1:n. Default 1:1 produces an
+In Layers, set Text height (inches) and Plot scale 1:n. Choosing 1:1 produces an
 actual model-space height of 0.10 inches (0.0083333333 feet or 2.54 mm). For a
 0.10-inch printed height at 1 inch = 20 feet, use 1:240, yielding a 2-foot model
 text height. Set drawing units and calibrate geometry before export; unitless
@@ -297,3 +297,12 @@ continue to omit text. Unrecognized lettering that remains raster linework canno
 receive a CAD text font. The browser uses an approximate font; Civil 3D renders
 `simplex.shx`. The SHX font is referenced, not bundled. These are model-space text
 heights, not annotative text objects.
+
+### Per-sheet scale question on import
+
+After importing a PDF or image, answer the plot-scale question for each new sheet.
+Each answer independently stores its plot ratio, CAD units, and 0.10-inch printed
+text height. Common architectural/civil/metric ratios and a custom 1:n value are
+available. Plot scale does not calibrate raster geometry. Set later leaves that
+sheet unconfigured and blocks its DXF export (or the whole batch containing it)
+until a scale is entered. Use Layers → Set sheet scale to reopen the question.
