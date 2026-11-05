@@ -59,3 +59,9 @@ button,input,select{font:inherit}button{cursor:pointer}button:disabled{opacity:.
 .inspector-section h3{margin-bottom:10px}
 @media(max-width:900px){.ribbon-pane{padding:7px 10px}.ribbon-group{padding:0 10px}.ribbon-tabs{padding-inline:8px}}
 @media(max-width:520px){.ribbon-pane{min-height:72px}.ribbon-button.large{min-width:0}.ribbon-select select{min-width:84px;max-width:150px}.ribbon-tab{height:34px;padding:0 9px}}
+
+
+/* Permanent navigation affordance: Help is reachable from every application UI. */
+.app-help-link{display:inline-flex;align-items:center;justify-content:center;min-height:29px;padding:5px 8px;gap:5px;border-radius:5px;border:1px solid transparent;color:#b6d1d9;text-decoration:none;font-size:11px;font-weight:700;white-space:nowrap}
+.app-help-link:hover,.app-help-link:focus-visible{background:#2d4755;border-color:#44687a;color:#e6fcfa}
+@media(max-width:650px){.app-classic-link{display:none}.app-help-link{font-size:11px;padding-inline:6px}}
