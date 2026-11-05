@@ -1,0 +1,49 @@
+/* v0.8 CAD repair review, shared across Studio/Classic */
+.workbench{position:relative}
+.repair-ribbon-status{font:11px ui-monospace,Consolas,monospace;color:#6d8995;max-width:210px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.repair-drawer{position:absolute;right:0;top:0;bottom:0;width:min(365px,100vw);z-index:8;background:#fbfdfd;border-left:1px solid #d3e0e5;box-shadow:-12px 0 35px #132c3729;display:flex;flex-direction:column;overflow:hidden;color:#1d3948}
+.repair-drawer[hidden],.repair-detail[hidden]{display:none!important}
+.repair-drawer-header{padding:16px 18px;border-bottom:1px solid #e2e9ed;display:flex;align-items:center;justify-content:space-between}
+.repair-drawer-header h2{font-size:19px;line-height:1.2;letter-spacing:-.6px;margin:4px 0 0;color:#1f4250}
+.repair-eyebrow,.repair-detail-eyebrow{font-size:9px;letter-spacing:1.2px;color:#238b89;font-weight:800}
+.repair-icon-button{width:32px;height:32px;background:transparent;border:1px solid #dce6e9;border-radius:5px;display:grid;place-items:center;font-size:24px;line-height:1;color:#768e98}
+.repair-icon-button:hover{background:#e9f4f1;color:#167f7a}
+.repair-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;background:#f0f5f6;padding:12px 14px;border-bottom:1px solid #e3eaec;font-size:11px;color:#728b99}
+.repair-summary>div{border:1px solid #e2ecee;background:#fff;padding:8px;border-radius:5px;min-height:54px}
+.repair-summary strong{font-size:18px;line-height:1.25;color:#254959;display:block;font-variant-numeric:tabular-nums}
+.repair-summary span{font-size:9.5px;color:#8199a5}
+.repair-summary .safe strong{color:#188a73}
+.repair-summary .review strong{color:#aa7738}
+.repair-help{margin:0;padding:11px 17px;font-size:10.5px;line-height:1.6;color:#748c99}
+.repair-help strong{font-weight:700;color:#34596a}
+.repair-filters{display:flex;align-items:center;gap:9px;padding:8px 15px;border-bottom:1px solid #e3eaee;font-size:10px;font-weight:670;color:#698492}
+.repair-filters select{border:1px solid #d9e6e9;border-radius:5px;background:white;padding:6px 8px;font-size:11px;color:#3c6471;flex:1}
+.repair-list{flex:1;min-height:100px;overflow:auto;padding:10px 11px;scrollbar-width:thin}
+.repair-empty{padding:18px 10px;color:#7d94a0;font-size:11px;line-height:1.7}
+.repair-row{display:flex;gap:9px;align-items:center;padding:11px 9px;background:white;border:1px solid transparent;border-radius:6px;width:100%;text-align:left;color:#294654;cursor:pointer;margin-bottom:3px}
+.repair-row:hover{background:#f0f7f5;border-color:#d5eae7}
+.repair-row.active{background:#e8f6f3;border-color:#99cac5;box-shadow:inset 3px 0 #178c85}
+.repair-index{font:10px ui-monospace,Consolas,monospace;min-width:22px;color:#8ea3ae}
+.repair-row-main{min-width:0;flex:1}
+.repair-row-main strong{display:block;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:710}
+.repair-row-main small{display:block;margin-top:3px;font-size:10px;color:#8a9ca6}
+.repair-risk{font-size:9px;font-weight:790;padding:4px 6px;border-radius:3px;white-space:nowrap}
+.repair-risk.safe{background:#e3f5ed;color:#1d826d}
+.repair-risk.review{background:#fff4e6;color:#a77c3f}
+.repair-detail{flex:none;max-height:45%;overflow:auto;padding:15px 17px;border-top:1px solid #dce8eb;background:#fff}
+.repair-detail-eyebrow{display:flex;justify-content:space-between}
+.repair-detail-eyebrow span{font:9px ui-monospace,Consolas,monospace;color:#8197a3;max-width:170px;overflow:hidden;text-overflow:ellipsis}
+.repair-detail h3{font-size:14px;color:#264d59;letter-spacing:-.3px;margin:9px 0 7px}
+.repair-detail p{font-size:11px;color:#718a96;line-height:1.6;margin:0 0 12px}
+.repair-metrics{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px}
+.repair-metrics div{background:#f1f6f6;border-radius:4px;padding:8px 10px;min-width:88px}
+.repair-metrics span{font-size:9px;display:block;color:#849aa5}
+.repair-metrics strong{font:12px ui-monospace,Consolas,monospace;color:#37616b;margin-top:3px;display:block}
+.repair-detail-actions{display:flex;gap:7px;flex-wrap:wrap}
+.repair-detail-actions button{height:33px;padding:6px 12px;border:1px solid #ccdfe2;border-radius:5px;background:#f8fbfb;color:#315969;font-size:10.5px;font-weight:690;cursor:pointer}
+.repair-detail-actions #repairApplyDrawer{background:#128783;border-color:#128783;color:white}
+.repair-detail-actions #repairApplyDrawer:hover{background:#086b68}
+.repair-detail-actions button:disabled{opacity:.4}
+.repair-drawer-footer{font-size:10px;color:#8da0aa;line-height:1.55;border-top:1px solid #e4ecef;background:#f9fbfb;padding:10px 16px}
+@media(max-width:820px){.repair-drawer{width:min(350px,90vw)}}
+@media(max-width:560px){.repair-drawer{width:100%}.repair-detail{max-height:43%}}
