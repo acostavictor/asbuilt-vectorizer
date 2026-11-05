@@ -718,6 +718,10 @@ function cancelHatchDrawing(){
 function finishManualHatch(){
   const sheet=state.sheets[state.selected],editing=state.hatchEditing;
   if(!sheet||sheet.status!=="done"||!editing)return;
+  if(sheet.repairSession?.accepted?.length){
+    status("Hatch edits would rebuild linework and discard applied CAD repairs. Undo repairs first, then edit this hatch.");
+    return;
+  }
   const points=editing.points;
   const invalid=validatePolygon(points);
   if(invalid){status(invalid+" Use Undo point or Esc to cancel.");return;}
@@ -742,6 +746,9 @@ function finishManualHatch(){
 $("drawHatch").addEventListener("click",()=>{
   const sheet=state.sheets[state.selected];
   if(!sheet||sheet.status!=="done"){status("Convert a drawing first, then select its hatch region.");return;}
+  if(sheet.repairSession?.accepted?.length){
+    status("Finish hatch corrections before CAD Repair, or undo applied repairs to edit hatches.");return;
+  }
   if(state.hatchEditing){cancelHatchDrawing();viewport.setTool("pan");drawVectors();return;}
   state.calibration=null;state.cropping=null;
   setView("overlay");
@@ -763,6 +770,9 @@ $("finishHatch").addEventListener("click",finishManualHatch);
 $("removeLastHatch").addEventListener("click",()=>{
   const sheet=state.sheets[state.selected];
   if(!sheet?.manualHatchSpecs?.length)return;
+  if(sheet.repairSession?.accepted?.length){
+    status("Undo CAD repairs before undoing a hatch, to avoid discarding approved geometry fixes.");return;
+  }
   sheet.manualHatchSpecs.pop();rebuildSheetGeometry(sheet);
   drawVectors();updateStats();
   status("Reverted the most recent manual hatch without reconverting the PDF.");
