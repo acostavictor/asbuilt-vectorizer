@@ -20,7 +20,7 @@ function lineCandidate(path,index,maxStroke){
   const first=path[0],last=path[path.length-1];
   if(!first?.every(Number.isFinite)||!last?.every(Number.isFinite))return null;
   const vx=last[0]-first[0],vy=last[1]-first[1],len=Math.hypot(vx,vy);
-  if(len<5||len>maxStroke)return null;
+  if(len<1||len>maxStroke)return null;
   // Discard bends. Curves and branching polylines must not become dashed lines.
   let travel=0,offAxis=0;
   const ux=vx/len,uy=vy/len;
@@ -40,6 +40,33 @@ function lineCandidate(path,index,maxStroke){
   return {index,path,len,angle,axis:u,normal:n,offset:mid[0]*n[0]+mid[1]*n[1],
     start:Math.min(tA,tB),end:Math.max(tA,tB)};
 }
+export const LINE_TYPES=["DASHED","HIDDEN","CENTER","PHANTOM","DASHDOT"];
+export function linePattern(item,type=item.linetype){
+ const dash=item.dashPx||20,gap=item.gapPx||10,short=item.shortPx||dash/4;
+ if(type==="CENTER")return [dash,-gap,short,-gap];
+ if(type==="PHANTOM")return [dash,-gap,short,-gap,short,-gap];
+ if(type==="DASHDOT")return [dash,-gap,0,-gap];
+ return [dash,-gap];
+}
+function mixedPattern(series,gaps,limit){
+ const lengths=series.map(s=>s.len),gap=median(gaps);
+ if(gap<2.2||spread(gaps,gap)>limit.gapSpread)return null;
+ for(const period of [2,3]){
+  if(series.length<period*3)continue;
+  for(const phase of [0]){
+   const long=lengths.filter((_,i)=>i%period===phase),short=lengths.filter((_,i)=>i%period!==phase);
+   const dash=median(long),small=median(short);
+   if(dash<small*2.4||dash<10||gap>dash*limit.maxRatio)continue;
+   if(long.some(x=>Math.abs(x-dash)>dash*limit.dashSpread)||short.some(x=>Math.abs(x-small)>Math.max(.8,small*limit.dashSpread)))continue;
+   // A phantom repeats long-short-short; dash-dot repeats long-dot.
+   const linetype=period===3?"PHANTOM":small<=Math.min(3.5,dash*.12)?"DASHDOT":"CENTER";
+   return {linetype,dashPx:dash,shortPx:small,gapPx:gap,
+    // Require a long first stroke so the CAD pattern starts in the observed phase.
+    patternPx:lengths.slice(0,period).flatMap((x,i)=>[(linetype==="DASHDOT"&&x<dash*.5)?0:(i===phase?dash:small),-gap])};
+  }
+ }
+ return null;
+}
 function contiguousSeries(items,limit,minDashCount){
   const runs=[],used=new Set();
   const sorted=items.slice().sort((a,b)=>a.start-b.start);
@@ -53,7 +80,7 @@ function contiguousSeries(items,limit,minDashCount){
       // Stop on overlapping strokes: they are likely different objects.
       if(gap<=1.8)break;
       const maxGap=Math.min(limit.maxGap,Math.max(12,previous.len*limit.maxRatio));
-      if(gap>maxGap)break;
+      if(gap>Math.max(maxGap,Math.min(limit.maxGap,12)))break;
       // Prevent drifting diagonals from accidentally coalescing.
       const midAngle=Math.abs(previous.angle-next.angle);
       if(midAngle>limit.maxAngle||Math.abs(previous.offset-next.offset)>limit.maxOffset)break;
@@ -63,10 +90,11 @@ function contiguousSeries(items,limit,minDashCount){
     if(series.length<minDashCount)continue;
     const dashes=series.map(v=>v.len),dash=median(dashes),gap=median(gaps);
     const dashCV=spread(dashes,dash),gapCV=spread(gaps,gap);
-    if(!Number.isFinite(gap)||gap<2.2||gap>dash*limit.maxRatio)continue;
-    if(dashCV>limit.dashSpread||gapCV>limit.gapSpread)continue;
+    const mixed=mixedPattern(series,gaps,limit);
+    if(!Number.isFinite(gap)||gap<2.2||(!mixed&&gap>dash*limit.maxRatio))continue;
+    if(!mixed&&(dashCV>limit.dashSpread||gapCV>limit.gapSpread||dashes.some(x=>Math.abs(x-dash)>dash*limit.dashSpread)))continue;
     const totalLength=series[series.length-1].end-series[0].start;
-    if(totalLength<45||totalLength<dash*minDashCount+gap*(minDashCount-1)*.6)continue;
+    if(totalLength<45||(!mixed&&totalLength<dash*minDashCount+gap*(minDashCount-1)*.6))continue;
     // Very short repeated marks may be actual point symbols; require sufficient travel.
     if(dash<7&&series.length<6)continue;
     const maxOffset=median(series.map(v=>v.offset));
@@ -78,7 +106,7 @@ function contiguousSeries(items,limit,minDashCount){
     const confidence=Math.max(.3,Math.min(.95,.94-(dashCV*.6+gapCV*.4)));
     const matched=series.map(x=>x.index);
     runs.push({points,linetype,dashPx:dash,gapPx:gap,sourceSegments:matched.length,
-      confidence,sourceIndices:matched});
+      confidence,sourceIndices:matched,...mixed});
     for(const id of matched)used.add(id);
   }
   return {runs,used};
@@ -122,8 +150,11 @@ export function recognizeLineTypes(paths,{sensitivity="balanced",enabled=true}={
     stats:{candidateCount:candidates,recognizedRuns:styledPaths.length,
       dashedCount:styledPaths.filter(p=>p.linetype==="DASHED").length,
       hiddenCount:styledPaths.filter(p=>p.linetype==="HIDDEN").length,
+      centerCount:styledPaths.filter(p=>p.linetype==="CENTER").length,
+      phantomCount:styledPaths.filter(p=>p.linetype==="PHANTOM").length,
+      dashdotCount:styledPaths.filter(p=>p.linetype==="DASHDOT").length,
       segmentsConsumed:used.size}};
 }
 export function effectiveLineType(group,override="auto"){
-  return override==="DASHED"||override==="HIDDEN"?override:group.linetype;
+  return LINE_TYPES.includes(override)?override:group.linetype;
 }

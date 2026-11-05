@@ -86,13 +86,13 @@ function segmentDistance(point,a,b){
 const cellKey=(x,y)=>x+":"+y;
 function makeIndex(paths,{cellSize=100,maxLines=60000}={}){
   const cells=new Map(),segments=[];
-  for(const path of paths||[]){
+  for(const [sourceIndex,path] of (paths||[]).entries()){
     if(segments.length>=maxLines)break;
     // Curves and complex shapes cannot serve as dimension lines/witnesses.
     if(path?.length!==2||!path.every(finitePoint))continue;
     const length=len(path[0],path[1]);if(length<12||length>5000)continue;
     const index=segments.length,seg={path,axis:[
-      (path[1][0]-path[0][0])/length,(path[1][1]-path[0][1])/length],length,index};
+      (path[1][0]-path[0][0])/length,(path[1][1]-path[0][1])/length],length,index,sourceIndex};
     segments.push(seg);
     const x0=Math.floor(Math.min(path[0][0],path[1][0])/cellSize);
     const x1=Math.floor(Math.max(path[0][0],path[1][0])/cellSize);
@@ -120,7 +120,7 @@ function witnessAt(point,dimension,index,radius){
     if(witness.index===dimension.index||witness.length<10)continue;
     if(Math.abs(witness.axis[0]*dimension.axis[0]+witness.axis[1]*dimension.axis[1])>.31)continue;
     const m=segmentDistance(point,witness.path[0],witness.path[1]);
-    if(m.distance<=radius&&m.t>.03&&m.t<.97)return true;
+    if(m.distance<=radius&&m.t>.03&&m.t<.97)return witness;
   }
   return false;
 }
@@ -133,23 +133,40 @@ function associate(t,index,used){
   const center=bboxCenter(t),height=Math.max(7,Math.min(80,t.height||12));
   const radius=Math.max(22,height*5,Math.min(160,(t.bbox?.x1-t.bbox?.x0||0)*1.5));
   const options=[];
-  for(const seg of index.near(center,radius)){
-    if(used.has(seg.index)||seg.length<30)continue;
+  const nearby=index.near(center,radius);
+  const baselines=nearby.slice();
+  // A printed label commonly interrupts the baseline. Join only collinear pieces
+  // whose gap straddles this text and whose outer endpoints have witnesses.
+  for(let i=0;i<Math.min(nearby.length,100);i++)for(let j=i+1;j<Math.min(nearby.length,100);j++){
+    const a=nearby[i],b=nearby[j];
+    if(Math.abs(a.axis[0]*b.axis[0]+a.axis[1]*b.axis[1])<.998)continue;
+    const u=a.axis,project=p=>p[0]*u[0]+p[1]*u[1];
+    const ordered=[a,b].map(seg=>({seg,ends:seg.path.slice().sort((p,q)=>project(p)-project(q))})).sort((p,q)=>project(p.ends[0])-project(q.ends[0]));
+    const left=ordered[0],right=ordered[1],gap=project(right.ends[0])-project(left.ends[1]),at=project(center);
+    const lateral=Math.abs((b.path[0][0]-a.path[0][0])*u[1]-(b.path[0][1]-a.path[0][1])*u[0]);
+    if(lateral>1.5||gap<=1||gap>Math.max(height*5,(t.bbox?.x1-t.bbox?.x0||0)*2)||at<project(left.ends[1])-height||at>project(right.ends[0])+height)continue;
+    const path=[left.ends[0],right.ends[1]];
+    baselines.push({path,axis:u,length:len(...path),index:a.index,sourceIndex:a.sourceIndex,parts:[a,b]});
+  }
+  for(const seg of baselines){
+    if((seg.parts||[seg]).some(s=>used.has(s.index))||seg.length<30)continue;
     const closest=segmentDistance(center,seg.path[0],seg.path[1]);
     if(closest.distance>Math.min(radius,height*4+12)||closest.t<.12||closest.t>.88)continue;
     const witnessRadius=Math.min(18,Math.max(6,height*1.6));
-    if(!witnessAt(seg.path[0],seg,index,witnessRadius)||!witnessAt(seg.path[1],seg,index,witnessRadius))continue;
+    const firstWitness=witnessAt(seg.path[0],seg,index,witnessRadius),lastWitness=witnessAt(seg.path[1],seg,index,witnessRadius);
+    if(!firstWitness||!lastWitness||firstWitness.index===lastWitness.index)continue;
     // Parallel dimension baselines and original linework are indistinguishable
     // at some locations. Keep the result explicitly provisional.
     const alignment=1-Math.min(1,Math.abs(closest.t-.5)*1.8);
     const distanceScore=1-Math.min(1,closest.distance/Math.max(1,radius));
     const confidence=Math.min(.88,.61+.13*alignment+.12*distanceScore);
-    options.push({seg,confidence,dist:closest.distance});
+    options.push({seg,confidence,dist:closest.distance,witnesses:[firstWitness,lastWitness]});
   }
   if(!options.length)return null;
   options.sort((a,b)=>b.confidence-a.confidence||a.dist-b.dist);
-  const best=options[0];used.add(best.seg.index);
+  const best=options[0];for(const part of best.seg.parts||[best.seg])used.add(part.index);
   return {autoEndpoints:best.seg.path.map(p=>p.slice()),
+    sourcePathIndices:[...(best.seg.parts||[best.seg]).map(s=>s.sourceIndex),...best.witnesses.map(s=>s.sourceIndex)],
     confidence:nice(best.confidence),association:"dimension-line-with-two-witnesses"};
 }
 export function detectPrintedDimensions(texts,paths,{maxCandidates=500}={}){
@@ -167,7 +184,7 @@ export function detectPrintedDimensions(texts,paths,{maxCandidates=500}={}){
       bbox:item.bbox?{...item.bbox}:null,height:item.height||12,
       autoEndpoints:suggestion?.autoEndpoints||null,
       manualEndpoints:null,confidence:suggestion?.confidence||0,
-      association:suggestion?.association||null,reviewed:false,ignored:false});
+      association:suggestion?.association||null,sourcePathIndices:suggestion?.sourcePathIndices||[],reviewed:false,ignored:false});
   }
   return out;
 }

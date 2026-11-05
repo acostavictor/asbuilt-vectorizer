@@ -20,6 +20,7 @@ jobs:
           node --check src/hatch-repair.js
           node --check src/circles.js
           node --check src/linetype.js
+          node --check src/annotation-cleanup.js
           node --check src/tile-engine.js
           node --check src/viewport.js
           node --check src/dxf.js

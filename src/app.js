@@ -1,5 +1,7 @@
 import {buildDxf,filenameBase,uniqueDxfName} from "./dxf.js";
-import {recognizeLineTypes,effectiveLineType} from "./linetype.js";
+import {detectPrintedDimensions} from "./dimensions.js";
+import {excludeDimensions} from "./annotation-cleanup.js";
+import {recognizeLineTypes,effectiveLineType,LINE_TYPES,linePattern} from "./linetype.js";
 import {straightenPaths} from "./straightening.js";
 import {detectHatches} from "./hatch.js";
 import {recognizeCircles} from "./circles.js";
@@ -268,19 +270,21 @@ async function convertSheet(i){
     const previousWidth=s.width;
     const texts=source.nativeTexts.filter(t=>overlaps(t.bbox,area));
     const paths=[];let truncatedTiles=0,nonConvergedTiles=0;
+    const exportOcr=$("ocr").checked,removeText=$("removeText").checked,removeDimensions=$("removeDimensions").checked;
+    const detectText=exportOcr||removeText||removeDimensions||$("detectDimensionText").checked;
     for(let t=0;t<tiles.length;t++){
       const tile=tiles[t];
       status("Processing "+s.name+": tile "+(t+1)+"/"+tiles.length+
-        ($("ocr").checked?" (OCR enabled)":""));
+        (detectText?" (local text detection)":""));
       const canvas=await source.render(tile);
-      const nativeTileTexts=texts.filter(x=>x.x>=tile.left&&x.x<tile.left+tile.width&&
-        x.y>=tile.top&&x.y<tile.top+tile.height);
-      const tileTexts=[];
-      if($("ocr").checked){
+      const nativeTileTexts=texts.filter(x=>x.native&&overlaps(x.bbox,{x0:tile.left,y0:tile.top,x1:tile.left+tile.width,y1:tile.top+tile.height}));
+      const tileTexts=[],tileDetections=[];
+      if(detectText){
         try{
           const found=await readOcr(canvas);
           for(const item of found){
             const gx=item.x+tile.left,gy=item.y+tile.top;
+            tileDetections.push({...item,x:gx,y:gy,bbox:{x0:item.bbox.x0+tile.left,y0:item.bbox.y0+tile.top,x1:item.bbox.x1+tile.left,y1:item.bbox.y1+tile.top}});
             if(gx<tile.x0||gx>=tile.x1||gy<tile.y0||gy>=tile.y1)continue;
             if(gx<area.x0||gx>=area.x1||gy<area.y0||gy>=area.y1)continue;
             if(nativeTileTexts.some(n=>Math.hypot(n.x-gx,n.y-gy)<Math.max(12,item.height)))continue;
@@ -291,12 +295,12 @@ async function convertSheet(i){
         }catch(e){throw Error("Local OCR failed: "+e.message);}
       }
       texts.push(...tileTexts);
-      const masks=nativeTileTexts.concat(tileTexts).map(x=>({
-        x0:x.bbox.x0-tile.left,y0:x.bbox.y0-tile.top,
-        x1:x.bbox.x1-tile.left,y1:x.bbox.y1-tile.top
+      const masks=nativeTileTexts.concat(exportOcr||removeText?tileDetections:[]).map(x=>({
+        x0:x.bbox.x0-tile.left-2,y0:x.bbox.y0-tile.top-2,
+        x1:x.bbox.x1-tile.left+2,y1:x.bbox.y1-tile.top+2
       }));
       const options={threshold:$("threshold").value==="auto"?null:($("threshold").value==="adaptive"?"adaptive":Number($("threshold").value)),
-        minLength:$("detectLinetypes").checked?Math.min($("lineTypeSensitivity").value==="sensitive"?5:8,Math.max(4,Number($("minLength").value)||17)):Math.max(4,Number($("minLength").value)||17),
+        minLength:$("detectLinetypes").checked?Math.min(2,Math.max(4,Number($("minLength").value)||17)):Math.max(4,Number($("minLength").value)||17),
         epsilon:Math.max(.2,Number($("epsilon").value)||1.6),maxPaths:12000,
         minComponent:Math.max(0,Number($("speckles").value)||0),masks};
       const result=await trace(canvas,options);
@@ -322,7 +326,14 @@ async function convertSheet(i){
     const repaired=repairNearClosedContours(corrected.paths,{
       enabled:$("repairContours").checked,maxGap:5
     });
-    s.sourcePaths=repaired.paths;s.circles=circular.circles;
+    const detectedTexts=dedupeText(texts);
+    s.detectedTexts=detectedTexts;s.dimensionSourcePaths=removeDimensions?repaired.paths:null;
+    const dimensionCandidates=detectPrintedDimensions(detectedTexts,repaired.paths);
+    const excluded=removeDimensions?excludeDimensions(repaired.paths,circular.circles,detectedTexts,dimensionCandidates):
+      {paths:repaired.paths,circles:circular.circles,texts:detectedTexts,stats:null};
+    s.annotationCleanup={removeText,removeDimensions,ocrDetection:detectText,dimensionRemoval:excluded.stats};
+    s.sourcePaths=excluded.paths;s.circles=excluded.circles;
+    s.texts=removeText?[]:excluded.texts.filter(t=>t.native||exportOcr);
     s.circleStats=circular.stats;s.contourStats=repaired.stats;s.straightStats=corrected.stats;
     s.manualHatchSpecs=[];s.manualHatchResults=[];
     s.autoHatchEnabled=$("detectHatches").checked;
@@ -330,7 +341,7 @@ async function convertSheet(i){
     s.autoLinetypeSensitivity=$("lineTypeSensitivity").value;
     status("Recovering hatch patterns and line styles...");
     rebuildSheetGeometry(s);
-    s.texts=dedupeText(texts);s.width=source.width;s.height=source.height;
+    s.width=source.width;s.height=source.height;
     if(previousWidth>0&&s.calibrated)s.scale*=previousWidth/source.width;
     s.watermarkDetected=source.watermarkDetected;s.processingDpi=s.type==="pdf"?dpi:null;
     s.tilesProcessed=tiles.length;s.status="done";
@@ -338,7 +349,9 @@ async function convertSheet(i){
     s.warning=(truncatedTiles?truncatedTiles+" tiles reached the vector cap. ":"")+
       (nonConvergedTiles?nonConvergedTiles+" tiles did not fully thin. ":"")+
       (source.watermarkDetected?"PDF-XChange overlay detected"+($("removeWatermark").checked?" and filtered. ":". "):"")+
-      (!s.calibrated?"Output is not calibrated. ":"");
+      (!s.calibrated?"Output is not calibrated. ":"")+
+      (detectText?"Text/dimension detection may miss rotated, faint or merged labels. Review the vector preview. ":"")+
+      (removeDimensions?"Removed "+excluded.stats.matched+" matched dimensions; "+excluded.stats.unmatched+" unmatched notes retained for review. ":"");
   }catch(e){s.status="error";s.warning=e?.message||String(e);console.error("Conversion error",e);}
   finally{if(source)source.close();}
   updateList();
@@ -419,10 +432,10 @@ function updateStats(){
   $("hatchRepairHint").textContent=s.status==="done"?
     ((s.manualHatchSpecs?.length||0)+" manual hatch boundaries. Select Review & scale → Draw hatch boundary to repair a missed region."):
     "Convert this sheet before drawing a manual hatch boundary.";
-  const styleCounts={DASHED:0,HIDDEN:0};
+  const styleCounts=Object.fromEntries(LINE_TYPES.map(type=>[type,0]));
   for(const item of s.styledPaths||[])styleCounts[effectiveLineType(item,s.lineTypeOverride)]++;
   $("linetypeStats").textContent=s.status==="done"?
-    styleCounts.DASHED+" DASHED · "+styleCounts.HIDDEN+" HIDDEN"+
+    LINE_TYPES.map(type=>styleCounts[type]+" "+type).join(" · ")+
     (s.patternStats?.segmentsConsumed?" · "+s.patternStats.segmentsConsumed+" source strokes combined":""):
     "Convert a drawing to analyze its line patterns.";
   const stateText=s.status==="done"?"Converted":s.status==="error"?"Error":s.status==="running"?"Processing":"Not converted";
@@ -508,8 +521,8 @@ function drawVectors(){
   // Styles are represented by actual canvas dashes, rather than straight solids.
   for(const item of sheet.styledPaths||[]){
     const type=effectiveLineType(item,sheet.lineTypeOverride);
-    if(type!=="DASHED"&&type!=="HIDDEN")continue;
-    ctx.setLineDash([Math.max(2,item.dashPx||12),Math.max(2,item.gapPx||7)]);
+    if(!LINE_TYPES.includes(type))continue;
+    ctx.setLineDash(linePattern(item,type).map(x=>x===0?1:Math.abs(x)));
     ctx.strokeStyle=type==="HIDDEN"?(vectorOnly?"#e3bb76":"#b17d27"):
       (vectorOnly?"#38d0f2":"#07689e");
     const points=item.points;if(!points?.length)continue;
@@ -618,7 +631,7 @@ async function exportZip(){
         integrity:output.integrity,layers:output.layers,units:s.units,calibrated:s.calibrated,unitsPerPixel:s.scale,
         pageRelativeCoordinates:true,processingDpi:s.processingDpi,tilesProcessed:s.tilesProcessed,
         linetypes:output.lineTypeCounts,linetypePatterns:output.linePatterns,
-        patternRecognition:s.patternStats||null,linetypeOverride:s.lineTypeOverride,
+        annotationCleanup:s.annotationCleanup||null,patternRecognition:s.patternStats||null,linetypeOverride:s.lineTypeOverride,
         hatches:output.hatchCount,solidHatches:output.solidHatchCount,
         crossHatches:output.crossHatchCount,circles:output.circleCount,
         circleRecognition:s.circleStats||null,boundaryRepair:s.contourStats||null,
@@ -790,7 +803,7 @@ function invalidateConversion(s){
   if(s.status==="done"||s.status==="error"){
     s.status="pending";s.paths=[];s.sourcePaths=[];s.circles=[];s.circleStats=null;s.contourStats=null;
     s.manualHatchSpecs=[];s.manualHatchResults=[];s.hatches=[];s.hatchStats=null;s.straightStats=null;
-    s.styledPaths=[];s.patternStats=null;s.texts=[];s.dimensions=[];s.dimensionDetection=null;
+    s.styledPaths=[];s.patternStats=null;s.texts=[];s.detectedTexts=[];s.dimensionSourcePaths=null;s.dimensions=[];s.dimensionDetection=null;
     repairUI.resetSheet(s);
     s.warning="Drawing area changed; reconvert this sheet.";
     s.tilesProcessed=0;s.processingDpi=null;updateList();

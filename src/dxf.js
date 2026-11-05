@@ -1,7 +1,7 @@
 // Minimal ASCII DXF R2000 writer. Layered lines, polylines, text and true linetype table.
 // Native DWG is not supported. All input coordinates are page-relative raster pixels.
 import {completeDrawing,validateDrawingStructure} from "./dxf-structure.js";
-import {effectiveLineType} from "./linetype.js";
+import {effectiveLineType,LINE_TYPES,linePattern} from "./linetype.js";
 const clean=v=>String(v??"").replace(/[\r\n\x00-\x1f]/g," ").trim();
 const layerName=v=>clean(v).replace(/[<>\/\\":;?*|=,]/g,"_").slice(0,120)||"UNCLASSIFIED";
 const pair=(k,v)=>String(k)+"\n"+String(v)+"\n";
@@ -11,13 +11,10 @@ function median(values){const a=values.slice().sort((x,y)=>x-y);return a.length?
 export function filenameBase(name){
   return String(name).replace(/\.[^.]+$/,"").replace(/[^a-z0-9_-]+/gi,"_").slice(0,80)||"drawing";
 }
-function makeLinetype(name,dash,gap){
-  // DXF LTYPE pattern 49 uses positive lengths for ink and negative for spaces.
-  // The detected pixel period is converted to actual model-space units.
-  const positive=Math.max(.0001,dash),negative=Math.max(.0001,gap);
-  return pair(0,"LTYPE")+pair(100,"AcDbSymbolTableRecord")+pair(100,"AcDbLinetypeTableRecord")+pair(2,name)+pair(70,0)+pair(3,"As-built raster pattern (verify)")+
-    pair(72,65)+pair(73,2)+pair(40,number(positive+negative))+
-    pair(49,number(positive))+pair(74,0)+pair(49,number(-negative))+pair(74,0);
+function makeLinetype(name,pattern){
+ return pair(0,"LTYPE")+pair(100,"AcDbSymbolTableRecord")+pair(100,"AcDbLinetypeTableRecord")+pair(2,name)+pair(70,0)+pair(3,"As-built raster pattern (verify)")+
+  pair(72,65)+pair(73,pattern.length)+pair(40,number(pattern.reduce((sum,x)=>sum+Math.abs(x),0)))+
+  pattern.map(x=>pair(49,number(x))+pair(74,0)).join("");
 }
 export function buildDxf({width,height,paths=[],circles=[],hatches=[],hatchLayer="HATCH-REVIEW",styledPaths=[],lineTypeOverride="auto",
   texts=[],unitsPerPixel=1,geometryLayer="VEC-POLYLINES",
@@ -47,9 +44,10 @@ export function buildDxf({width,height,paths=[],circles=[],hatches=[],hatchLayer
   for(const item of styledPaths){
     if(!item||!Array.isArray(item.points)||item.points.length<2)continue;
     const type=effectiveLineType(item,lineTypeOverride);
-    if(!["HIDDEN","DASHED"].includes(type))continue;
-    if(!styles[type])styles[type]={dashes:[],gaps:[]};
+    if(!LINE_TYPES.includes(type))continue;
+    if(!styles[type])styles[type]={dashes:[],gaps:[],shorts:[]};
     if(Number.isFinite(item.dashPx)&&item.dashPx>0)styles[type].dashes.push(item.dashPx);
+    if(Number.isFinite(item.shortPx)&&item.shortPx>0)styles[type].shorts.push(item.shortPx);
     if(Number.isFinite(item.gapPx)&&item.gapPx>0)styles[type].gaps.push(item.gapPx);
   }
   let d=pair(0,"SECTION")+pair(2,"HEADER")+pair(9,"$ACADVER")+pair(1,"AC1015")+
@@ -62,14 +60,16 @@ export function buildDxf({width,height,paths=[],circles=[],hatches=[],hatchLayer
     // A consistent pattern per DXF linetype. Store observed periods in source-pixel units
     // as metadata; the exported pattern is correctly expressed in CAD drawing units.
     const dash=median(metrics.dashes)||20,gap=median(metrics.gaps)||10;
-    linePatterns[type]={dashPx:dash,gapPx:gap};
-    d+=makeLinetype(type,dash*unitsPerPixel,gap*unitsPerPixel);
+    const short=median(metrics.shorts)||dash/4;
+    const pattern=linePattern({dashPx:dash,gapPx:gap,shortPx:short},type);
+    linePatterns[type]={dashPx:dash,gapPx:gap,shortPx:short,patternPx:pattern};
+    d+=makeLinetype(type,pattern.map(x=>x*unitsPerPixel));
   }
   d+=pair(0,"ENDTAB")+pair(0,"TABLE")+pair(2,"LAYER")+pair(100,"AcDbSymbolTable")+pair(70,names.length);
   for(const name of names)d+=pair(0,"LAYER")+pair(100,"AcDbSymbolTableRecord")+pair(100,"AcDbLayerTableRecord")+pair(2,name)+pair(70,0)+pair(62,indices[name]??7)+pair(6,"CONTINUOUS");
   d+=pair(0,"ENDTAB")+pair(0,"ENDSEC")+pair(0,"SECTION")+pair(2,"ENTITIES");
   const map=p=>[originX+p[0]*unitsPerPixel,originY+(height-p[1])*unitsPerPixel];
-  const counts={DASHED:0,HIDDEN:0},geometryCount={solid:0,styled:0};let textCount=0;
+  const counts=Object.fromEntries(LINE_TYPES.map(type=>[type,0])),geometryCount={solid:0,styled:0};let textCount=0;
   function addPath(path,linetype=null){
     if(!Array.isArray(path)||path.length<2)return false;
     const points=path.map(map);

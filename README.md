@@ -232,3 +232,29 @@ Run the included synthetic geometry/DXF tests and validate representative export
 ## Licensing
 
 Project code: Copyright (c) 2026, repository owner. **All rights reserved pending selection of a license.** No rights to reuse or redistribute this repository are granted by default. Third-party libraries retain their own licenses.
+
+## Line patterns and annotation cleanup
+
+Conversion recognizes repeated DASHED, HIDDEN, CENTER (long-short), PHANTOM
+(long-short-short), and DASHDOT (long-dot) strokes. At least three repeating mixed
+cycles are required. Names describe observed raster patterns, not engineering
+intent. Low resolution, touching strokes and erased dots can prevent recognition.
+Review detected styles and use the sheet-wide override when necessary. DXF exports
+use native calibrated linetype patterns; DASHDOT uses zero-length DXF dot elements.
+
+In Convert, choose annotation options and reconvert:
+- **Export recognized text (OCR):** mask detected raster lettering and export TEXT.
+- **Remove detected text (no text export):** run OCR to locate text, mask its pixels,
+  and omit both native and OCR text entities. Detection text remains available
+  internally for dimension QA. Missed lettering can still trace as geometry.
+- **Find dimensions during conversion:** enabled by default. Runs local OCR even
+  when text export is off, so scanned numeric labels can reach Dimension review.
+- **Remove matched dimensions & labels:** omit matched baselines, their two witness
+  lines and matched labels. Both continuous and label-interrupted baselines are
+  supported. Unmatched notes, ambiguous geometry and detached arrowheads may remain.
+
+These options preserve the original imported file. Dimension detection is still
+provisional: it does not reconstruct Civil 3D DIMENSION objects. Review the vector
+preview and Dimension drawer, especially shared model/witness lines. First OCR use
+requires language-model assets; recognition runs locally. Full scans and browser
+OCR quality have not been validated against every drafting standard.

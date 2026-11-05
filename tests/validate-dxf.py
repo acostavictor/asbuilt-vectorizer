@@ -50,11 +50,21 @@ with tempfile.TemporaryDirectory() as directory:
     audit = doc.audit()
     assert not audit.errors, [(e.code, e.message) for e in audit.errors]
     assert not audit.fixes, [(e.code, e.message) for e in audit.fixes]
-    assert len(entities) == 8, len(entities)
+    assert len(entities) == 11, len(entities)
     assert {e.dxftype() for e in entities} == {'LINE','LWPOLYLINE','TEXT','CIRCLE','HATCH'}
     assert doc.units == 2
     assert len(doc.modelspace().query('HATCH')) == 2
-    assert {e.dxf.linetype for e in entities} >= {'DASHED','HIDDEN'}
+    assert {e.dxf.linetype for e in entities} >= {'DASHED','HIDDEN','CENTER','PHANTOM','DASHDOT'}
+    expected_patterns = {'CENTER': [10,-2,2.5,-2],
+                         'PHANTOM': [10,-2,2.5,-2,2.5,-2],
+                         'DASHDOT': [10,-2,0,-2]}
+    for name, expected in expected_patterns.items():
+        record = next(r for r in raw['TABLES'] if r[0].value == 'LTYPE'
+                      and any(t.code == 2 and t.value == name for t in r))
+        actual = [t.value for t in record if t.code == 49]
+        assert actual == expected, (name, actual)
+        assert next(t.value for t in record if t.code == 73) == len(expected)
+        assert next(t.value for t in record if t.code == 40) == sum(map(abs,expected))
     poly = doc.modelspace().query('LWPOLYLINE').first
     assert list(poly.get_points('xy')) == [(0.5,49.5),(2.5,46.0),(6.0,45.0)]
     print(f'ezdxf {ezdxf.__version__}: {len(entities)} entities; zero audit errors; zero audit repairs')

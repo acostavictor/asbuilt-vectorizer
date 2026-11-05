@@ -80,9 +80,15 @@
         <span class="ribbon-note">Requires a closed boundary and regular pattern</span>
       </div><div class="ribbon-group-label">Hatches</div></div>
       <div class="ribbon-group"><div class="ribbon-controls ribbon-stack">
-        <label class="ribbon-check"><input type="checkbox" id="ocr">Recognize printed text (OCR)</label>
+        <label class="ribbon-check"><input type="checkbox" id="ocr">Export recognized text (OCR)</label>
+        <label class="ribbon-check"><input type="checkbox" id="removeText">Remove detected text (no text export)</label>
         <label class="ribbon-check"><input type="checkbox" id="removeWatermark" checked>Filter PDF-XChange trial overlays</label>
       </div><div class="ribbon-group-label">Text &amp; cleanup</div></div>
+      <div class="ribbon-group"><div class="ribbon-controls ribbon-stack">
+        <label class="ribbon-check"><input type="checkbox" id="detectDimensionText" checked>Find dimensions during conversion</label>
+        <label class="ribbon-check"><input type="checkbox" id="removeDimensions">Remove matched dimensions &amp; labels</label>
+        <span class="ribbon-note">Detected annotations only. Review misses; reconvert after changes.</span>
+      </div><div class="ribbon-group-label">Dimension detection (local OCR)</div></div>
     </section>
     <section class="ribbon-pane" id="panel-review" role="tabpanel" aria-labelledby="tab-review">
       <div class="ribbon-group"><div class="ribbon-controls">
@@ -154,7 +160,7 @@
         <label class="ribbon-field wide">Text layer<input id="textLayer" value="ANNO-TEXT" maxlength="120"></label>
         <label class="ribbon-field wide">Hatch layer<input id="hatchLayer" value="HATCH-REVIEW" maxlength="120"></label>
         <label class="ribbon-select">Detected linetypes<select id="lineTypeOverride" title="Override the type of all detected dashed-line groups on this sheet">
-          <option value="auto">Auto (review)</option><option value="DASHED">All DASHED</option><option value="HIDDEN">All HIDDEN</option>
+          <option value="auto">Auto (review)</option><option value="DASHED">All DASHED</option><option value="HIDDEN">All HIDDEN</option><option value="CENTER">All CENTER</option><option value="PHANTOM">All PHANTOM</option><option value="DASHDOT">All DASHDOT</option><option value="CENTER">All CENTER</option><option value="PHANTOM">All PHANTOM</option><option value="DASHDOT">All DASHDOT</option>
         </select></label>
       </div><div class="ribbon-group-label">DXF layer assignment</div></div>
     </section>

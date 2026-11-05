@@ -126,8 +126,8 @@ export function setupDimensionUI({getSheet,viewport,status,redraw,download,showO
     if(!sheet||sheet.status!=="done")return;
     const manual=preserveManual?(sheet.dimensions||[]).filter(d=>d.manualSource):[];
     const before=(sheet.dimensions||[]).filter(d=>!d.manualSource);
-    const detected=detectPrintedDimensions(sheet.texts,useCurrentGeometry?sheet.paths:
-      (sheet.sourcePaths?.length?sheet.sourcePaths:sheet.paths));
+    const detected=detectPrintedDimensions(sheet.detectedTexts||sheet.texts,sheet.dimensionSourcePaths||(useCurrentGeometry?sheet.paths:
+      (sheet.sourcePaths?.length?sheet.sourcePaths:sheet.paths)));
     for(const d of detected){
       const matching=before.find(b=>b.originalLabel===d.originalLabel&&
         Math.abs(b.textX-d.textX)<2&&Math.abs(b.textY-d.textY)<2);
@@ -138,7 +138,7 @@ export function setupDimensionUI({getSheet,viewport,status,redraw,download,showO
     }
     // Synthetic manual IDs are distinct from OCR IDs to avoid selection loss.
     sheet.dimensions=[...detected,...manual];
-    sheet.dimensionDetection={sourceTextCount:sheet.texts.length,
+    sheet.dimensionDetection={sourceTextCount:(sheet.detectedTexts||sheet.texts).length,
       detected:detected.length,automaticallyAssociated:detected.filter(d=>d.autoEndpoints).length,
       manualNotes:manual.length,limitReached:detected.length===500};
     if(!sheet.dimensions.some(d=>d.id===state.selectedId))
@@ -307,7 +307,7 @@ export function setupDimensionUI({getSheet,viewport,status,redraw,download,showO
     const sheet=current();
     if(!sheet||sheet.status!=="done"){status("Convert a drawing before searching for dimensions.");return;}
     scan(sheet);open();
-    status((sheet.dimensions||[]).length+" potential dimension notes found. Confirm associations and mismatches in the review drawer.");
+    status(sheet.dimensionDetection?.sourceTextCount?(sheet.dimensions||[]).length+" potential dimension notes; "+sheet.dimensionDetection.automaticallyAssociated+" matched to witness lines. Confirm associations in the review drawer.":"No text available for dimension detection. Enable Find dimensions during conversion and reconvert this sheet.");
   });
   $("dimToggleDrawer").addEventListener("click",()=>drawer.hidden?open():close());
   $("dimCloseDrawer").addEventListener("click",close);
