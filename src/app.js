@@ -24,7 +24,10 @@ const dimensionUI=setupDimensionUI({
 const repairUI=setupRepairUI({
   getSheet:()=>state.sheets[state.selected],
   viewport,status,redraw:drawVectors,showOverlay:()=>setView("overlay"),
-  onGeometryChanged:()=>dimensionUI.onScaleChanged(),
+  onGeometryChanged:sheet=>{
+    dimensionUI.onScaleChanged();
+    if(sheet.dimensions?.length)dimensionUI.scan(sheet,{preserveManual:true,useCurrentGeometry:true});
+  },
   refreshStats:updateStats
 });
 const presets={
