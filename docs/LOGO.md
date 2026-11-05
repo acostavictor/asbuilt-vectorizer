@@ -16,6 +16,9 @@ All logo files live in `assets/` at the repository root:
 
 - `assets/logo-mark.svg` — the mark alone. Also wired as the favicon on every
   page (see below).
+- `assets/logo-mark-header.svg` — header variant: no background tile, bolder
+  V path, larger anchor nodes, raster pixels omitted. Built for 30px headers,
+  where the tiled mark turns muddy.
 - `assets/vecbuilt-lockup-dark.svg` — mark plus wordmark for dark backgrounds
   (app header, dark pages).
 - `assets/vecbuilt-lockup-light.svg` — mark plus wordmark for light backgrounds
@@ -45,10 +48,13 @@ not stretch the mark, and do not place the dark lockup on a light background
 ## Where it is wired
 
 - Browser tab favicon (SVG) on all four entry points: `/` (`index.html`),
-  `/studio-preview/`, `/classic/`, and `/help/`.
+  `/studio-preview/`, `/classic/`, and `/help/`. The favicon keeps the tiled
+  mark, which needs its own background.
 - Header brand mark beside the VecBuilt title on Studio, Studio preview, and
-  Classic. The old `AV` text badge is gone.
-- Help Center header wordmark.
+  Classic: the header variant, not the tiled mark. The tiled mark's navy tile
+  is darker than the header navy and showed as a floating box, so headers use
+  the tile-free variant. The old `AV` text badge is gone.
+- Help Center header wordmark, also the header variant.
 
 Note: the Studio stylesheet previously hid the old `.logo` text badge. The
 new mark uses the `.logo-img` class, so it shows in the Studio headers by

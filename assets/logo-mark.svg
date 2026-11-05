@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 256 256">
-  <title>AsBuilt Vectorizer logo mark: scan to vector</title>
+  <title>VecBuilt logo mark: scan to vector</title>
   <desc>A bold V drawn as a vector path with anchor-point nodes. Three small raster pixels in the top-left corner dissolve into the clean path: a scanned as-built becoming usable vector linework.</desc>
   <!-- Tile -->
   <rect x="8" y="8" width="240" height="240" rx="52" fill="#0B101E"/>

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 256 256">
+  <title>VecBuilt logo mark, header version</title>
+  <desc>Header variant of the VecBuilt mark: no background tile, bolder V path and larger anchor-point nodes so it stays readable at 30px in the app header. The raster pixels are omitted at this size.</desc>
+  <!-- Vector path: the V -->
+  <path d="M56 64 L128 192 L200 64" fill="none" stroke="#38BDF8" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Anchor-point nodes -->
+  <circle cx="56" cy="64" r="18" fill="#FFFFFF" stroke="#38BDF8" stroke-width="6"/>
+  <circle cx="128" cy="192" r="18" fill="#FFFFFF" stroke="#38BDF8" stroke-width="6"/>
+  <circle cx="200" cy="64" r="18" fill="#FFFFFF" stroke="#38BDF8" stroke-width="6"/>
+</svg>
