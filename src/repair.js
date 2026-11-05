@@ -110,7 +110,7 @@ export function analyzeRepairs(paths,{tolerance=3,duplicateTolerance=.85,
             if(collinear){
               const safe=gap<=Math.min(1.25,tolerance*.5)&&angle>.9998&&lateral<.42&&
                 Math.min(seg.len,other.len)>22;
-              push("join",pair,pairSources,[[...far],[...farOther]],
+              push("join",pair,pairSources,[[[...far],[...farOther]]],
                 [(point[0]+item.point[0])/2,(point[1]+item.point[1])/2],
                 gap,safe?.98:.88,safe,
                 safe?"Small, nearly exact collinear gap with no line reversal.":
@@ -121,7 +121,7 @@ export function analyzeRepairs(paths,{tolerance=3,duplicateTolerance=.85,
           // Corner repair: project two nonparallel baselines to a shared
           // intersection near an endpoint on BOTH segments. Review is required.
           const acute=Math.abs(dot(seg.axis,other.axis));
-          if(acute>.91||acute<.06)continue;
+          if(acute>.91)continue;
           const crossAt=intersection(seg.path[0],seg.path[1],other.path[0],other.path[1]);
           if(!crossAt)continue;
           const endA=distance(crossAt,seg.path[0])<distance(crossAt,seg.path[1])?0:1;
