@@ -1,6 +1,6 @@
 # VecBuilt: Version 1 sketch: from raster tracer to semantic drawing set
 
-## Where v0.6 stands (grounded in the repo, not assumed)
+## Where v0.7 stands (grounded in the repo, not assumed)
 
 The app at `acostavictor/asbuilt-vectorizer` (v0.6.0, `main`) already does the hard
 geometry work, client-side, with no upload endpoint:
@@ -9,7 +9,7 @@ geometry work, client-side, with no upload endpoint:
 - Raster centerline tracing to LINE/LWPOLYLINE, CIRCLE fitting, hatch recognition
   and manual hatch repair, dashed/hidden reconstruction, straightening, gap repair
 - Local Tesseract OCR to DXF TEXT entities
-- Calibration from a known measurement, second-dimension confirmation
+- Calibration from a known measurement; v0.7 dimension QA detects linear numeric annotations, proposes endpoint pairs with witness lines, compares measured/printed values, and supports manual review and CSV reports
 - Layered DXF export (single DXF or QA ZIP with manifest)
 - `src/app.js` engine shared by the production UI and `studio-preview/`
 
@@ -50,7 +50,13 @@ standards vary by firm. Suggested defaults: A-WALL, A-DOOR, A-WINDOW, A-DIM,
 A-TEXT, A-SYMB. UNKNOWN keeps the current appearance-based layer so nothing
 regresses. The mapping table itself is saved in the QA manifest.
 
-### 3. Dimension association (the highest-value v1 feature for as-builts)
+### 3. Full semantic dimension association (builds on v0.7)
+
+v0.7 already provides conservative two-witness-line association, editable OCR
+readings, manual endpoint measurement and mismatch/CSV QA. V1 must improve
+automatic endpoint attachment for interrupted lines, rotated dimensions and
+extension lines, and ideally distinguish legitimate view-specific dimensions
+from general numeric annotation. Continue to preserve uncertainty.
 
 Tie each OCR dimension string to the entity pair it measures:
 
@@ -78,8 +84,8 @@ philosophy as Markup & Validate. Nothing semantic ships without a review path.
 
 ### 6. QA manifest extension
 
-The QA ZIP already records DPI, tiles, ROI, watermark detection, and
-calibration status. Add: semantic coverage (percent of entities labeled),
+The QA ZIP already records DPI, tiles, ROI, watermark detection, calibration
+status, and dimension review results. Add: semantic coverage (percent of entities labeled),
 dimension match rate, mismatch list, and unlabeled entity count. A set with
 90 percent labeled and zero dimension mismatches reads very differently from
 one with 40 percent labeled, and the manifest should say so.
