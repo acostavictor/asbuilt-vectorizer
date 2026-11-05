@@ -28,9 +28,12 @@
         <a href="#overview">Overview</a>
         <a href="#quick-start">Quick start</a>
         <a href="#navigation">Zoom, pan &amp; selection</a>
-        <a href="#calibration">Scale calibration</a>
+        <a href="#calibration">Geometry calibration</a>
+        <a href="#sheet-scale">Sheet scale &amp; text size</a>
         <a href="#dimension-qa">Dimension QA</a>
         <a href="#conversion">Conversion settings</a>
+        <a href="#linetypes">Linetype recognition</a>
+        <a href="#annotation-cleanup">Text &amp; dimension removal</a>
         <a href="#cad-geometry">CAD entities &amp; QA</a>
         <a href="#hatch-editing">Hatch boundary repair</a>
         <a href="#cad-repair">CAD cleanup &amp; repair</a>
@@ -62,10 +65,10 @@
           <h2>Quick start</h2>
           <p class="lead">Start with a single representative sheet before processing a batch. That lets you check settings and output quality without waiting for every drawing.</p>
           <div class="steps">
-            <article class="step"><span class="step-number">01</span><div><h3>Import a drawing</h3><p>Open <strong>Home → Add drawings</strong> and select a PDF, PNG, or JPG. Multi-page PDFs are split into individual sheets, up to the 50-sheet batch limit.</p></div><span class="step-meta">HOME</span></article>
+            <article class="step"><span class="step-number">01</span><div><h3>Import a drawing</h3><p>Open <strong>Home → Add drawings</strong> and select a PDF, PNG, or JPG. Multi-page PDFs are split into individual sheets, up to the 50-sheet batch limit. After import, answer the plot-scale and CAD-unit question for each sheet. Each answer controls 0.10-inch printed Simplex text; geometry still needs separate calibration.</p></div><span class="step-meta">HOME</span></article>
             <article class="step"><span class="step-number">02</span><div><h3>Choose scan quality</h3><p>In <strong>Convert</strong>, begin with <strong>150 DPI</strong> and Automatic threshold. For faded or thin strokes, try Adaptive threshold or 200 DPI. Higher resolution needs more processing time.</p></div><span class="step-meta">CONVERT</span></article>
             <article class="step"><span class="step-number">03</span><div><h3>Convert the sheet</h3><p>Choose <strong>Home → Convert sheet</strong>, or Convert all for a batch. The app reconstructs raster linework in local processing tiles. Wait until the selected sheet reports Converted.</p></div><span class="step-meta">HOME</span></article>
-            <article class="step"><span class="step-number">04</span><div><h3>Review actual extracted geometry</h3><p>Switch between <strong>Original</strong>, <strong>Overlay</strong>, and <strong>Vectors only</strong>. Inspect line connections, circle shapes, hatches, dimensions, and dashed-line patterns.</p></div><span class="step-meta">REVIEW</span></article>
+            <article class="step"><span class="step-number">04</span><div><h3>Review actual extracted geometry</h3><p>Switch between <strong>Original</strong>, <strong>Overlay</strong>, and <strong>Vectors only</strong>. Inspect line connections, circle shapes, hatches, dimensions, small curves, and recognized line patterns.</p></div><span class="step-meta">REVIEW</span></article>
             <article class="step"><span class="step-number">05</span><div><h3>Calibrate and verify</h3><p>Open <strong>Review &amp; scale</strong>, enter a known distance and drawing units, then pick its two endpoints. Confirm a <em>different</em> known measurement for accuracy.</p></div><span class="step-meta">SCALE</span></article>
             <article class="step"><span class="step-number">06</span><div><h3>Export to CAD</h3><p>Check the layer names under <strong>Layers</strong>. Choose <strong>Download DXF</strong> or <strong>Batch ZIP</strong>, then verify the editable entities in AutoCAD or Civil 3D.</p></div><span class="step-meta">EXPORT</span></article>
           </div>
@@ -116,52 +119,96 @@
           <div class="note warning"><strong>Not georeferencing</strong><p>Two-point calibration sets a measurement scale. It does not establish survey control, coordinate-system location, rotation, or real-world georeferencing.</p></div>
         </section>
 
+        <section class="doc-section" id="sheet-scale">
+          <div class="section-kicker">04 / PRINTED ANNOTATIONS</div>
+          <h2>Set each sheet’s plot scale and text size</h2>
+          <p class="lead">Plot scale controls printed annotation size. Geometry calibration controls real model distances. You need both, and each sheet can have a different scale.</p>
+          <ol class="numbered">
+            <li>After import, answer <strong>What is this sheet’s plot scale?</strong> for each new PDF page or image. Choose a common scale or <strong>Other — enter 1:n below</strong>, then select <strong>CAD drawing units</strong>.</li>
+            <li>Choose <strong>Save sheet scale</strong>. The answer is saved only for that sheet, and its printed text height is set to <strong>0.10 inches</strong>.</li>
+            <li>Use <strong>Set later</strong> to defer an answer. Before export, return to <strong>Layers → Set sheet scale</strong>. A skipped answer is not silently treated as full size.</li>
+            <li>Calibrate the drawing separately using <strong>Review &amp; scale → Pick two points</strong>, then check an independent measurement.</li>
+          </ol>
+          <div class="setting-list">
+            <div><strong>Simplex text and dimension labels</strong><p>Exported native/OCR text and recognized dimension labels use <code>SIMPLEX</code>, referencing <code>simplex.shx</code>. The DXF includes a matching default dimension style for future CAD dimensions. Detected dimension linework is still not an associative DIMENSION object. Browser text uses an approximate font.</p></div>
+            <div><strong>Plot scale examples</strong><p>For 0.10-inch printed height at <strong>1″ = 20′</strong>, choose <strong>1:240</strong>; model text height becomes 2 feet in a feet drawing. <strong>¼″ = 1′-0″</strong> uses 1:48. At <strong>1:100</strong> with millimeter CAD units, model text height becomes 254 mm. At 1:1 it is 0.10 inches, or 2.54 mm.</p></div>
+            <div><strong>Changing an existing sheet</strong><p>Edit <strong>Printed text height (inches)</strong> or <strong>Plot scale 1 : n</strong> under Layers and export again. Re-recognizing text is unnecessary for style changes. These are model-space heights calculated from your plot ratio, not annotative CAD text objects.</p></div>
+          </div>
+        </section>
+
         <section class="doc-section" id="dimension-qa">
-          <div class="section-kicker">04 / MEASUREMENT QA</div>
+          <div class="section-kicker">05 / MEASUREMENT QA</div>
           <h2>Recognize and validate dimensions</h2>
-          <p class="lead">VecBuilt detects printed linear measurements from PDF text or optional OCR, looks for a nearby dimension line with two witness/extension lines, and compares the measured geometry against the label after the sheet is calibrated.</p>
+          <p class="lead">VecBuilt detects printed linear measurements from PDF text or local OCR, looks for a nearby dimension line with two witness/extension lines, and compares the measured geometry against the label after the sheet is calibrated.</p>
           <div class="steps">
-            <article class="step"><span class="step-number">01</span><div><h3>Convert with OCR when needed</h3><p>Scanned-image dimensions have no editable text layer. Turn on <strong>Convert → Recognize printed text (OCR)</strong> and reconvert the sheet. Native PDF text may be detected without OCR.</p></div><span class="step-meta">CONVERT</span></article>
+            <article class="step"><span class="step-number">01</span><div><h3>Convert with OCR when needed</h3><p>Scanned-image dimensions have no editable text layer. Keep <strong>Convert → Find dimensions during conversion</strong> enabled (on by default), then reconvert. Detection does not require exporting OCR text. Native PDF text can supply labels without OCR.</p></div><span class="step-meta">CONVERT</span></article>
             <article class="step"><span class="step-number">02</span><div><h3>Calibrate from a trusted dimension</h3><p>Set drawing units under <strong>Review &amp; scale</strong>, and pick two endpoints for one reliable measurement. Do not validate the same reference dimension against its own calibration without an independent check.</p></div><span class="step-meta">CALIBRATE</span></article>
             <article class="step"><span class="step-number">03</span><div><h3>Open Dimensions</h3><p>Choose the <strong>Dimensions</strong> ribbon tab, then <strong>Find dimensions</strong>. The review drawer lists potential dimensions, automatically associated lines, mismatches, and measurements still needing endpoints.</p></div><span class="step-meta">RECOGNIZE</span></article>
             <article class="step"><span class="step-number">04</span><div><h3>Review and correct</h3><p>Select a note to center it in the viewport. Check the OCR reading, edit the printed value if necessary, or use <strong>Pick endpoints</strong> and click the two measured points directly in the drawing. You can also add a missing note manually.</p></div><span class="step-meta">REVIEW</span></article>
             <article class="step"><span class="step-number">05</span><div><h3>Validate the difference</h3><p>VecBuilt compares the printed dimension with the measured distance using the larger of <strong>percentage tolerance</strong> and <strong>minimum tolerance in drawing units</strong>. The default settings are 1% and 0.05 drawing units. These are initial review settings, not acceptance tolerances for all projects.</p></div><span class="step-meta">COMPARE</span></article>
             <article class="step"><span class="step-number">06</span><div><h3>Export evidence</h3><p>Download a dimension QA CSV or export a batch ZIP containing per-sheet dimension reports and a JSON manifest. Confirm review on each resolved measurement. A mismatch stays flagged after confirmation; it is not automatically corrected or approved.</p></div><span class="step-meta">REPORT</span></article>
           </div>
-          <div class="note warning"><strong>Important limitations</strong><p>Automatic association requires a recognizable dimension line and both perpendicular witness lines. Numeric notes such as elevations, grid references, stationing, radii, and leader callouts may not be recognized as linear dimensions. The feature does not create native associative DXF DIMENSION entities. A matching value is provisional until reviewed, and verified units and independent scale checks are essential.</p></div>
+          <div class="note"><strong>Rotated and uncertain OCR</strong><p>Dimension OCR compares original and rule-suppressed images in horizontal and both vertical orientations. It accepts imperial fractions and trailing TYP/TYPICAL or a standalone ± mark. Numeric tolerances are not silently discarded. Check <strong>Original OCR</strong> in the selected finding. Missing foot marks may be inferred and flagged for review; digits can still be wrong. Inferred or low-confidence readings cannot trigger automatic dimension removal.</p></div>
+          <div class="note warning"><strong>Important limitations</strong><p>Association uses a recognizable baseline and two extension/witness lines. Continuous, label-interrupted, chained, and simple leader-offset dimensions are supported provisionally; not every callout or drafting convention will match. Elevations, stationing, radii and grid labels are not reliable linear dimensions. The feature does not create native associative DXF DIMENSION entities. A matching value is provisional until reviewed, and verified units and independent scale checks are essential.</p></div>
         </section>
 
         <section class="doc-section" id="conversion">
-          <div class="section-kicker">04 / PROCESSING</div>
+          <div class="section-kicker">06 / PROCESSING</div>
           <h2>Conversion settings</h2>
           <p class="lead">The Studio interface keeps advanced options under <strong>Convert → Advanced conversion</strong>. The classic interface shows more controls directly in the Convert tab.</p>
           <div class="setting-list">
             <div><strong>Resolution</strong><p>96 DPI is faster, 150 DPI is a good first pass, and 200–240 DPI can recover finer scan details. Higher settings increase processing time.</p></div>
             <div><strong>Threshold and noise</strong><p>Adaptive threshold helps with faded or uneven backgrounds. Speckle removal cleans small isolated marks but can also erase tiny valid features.</p></div>
             <div><strong>Recognize circles</strong><p>Attempts to fit real CAD <code>CIRCLE</code> entities to sufficiently complete round strokes or matching fragments. Uncertain circular geometry stays as linework.</p></div>
+            <div><strong>Smooth curves &amp; preserve small details</strong><p>Enabled by default. Applies a light, bounded raster-noise filter and reduces simplification error for small features. Junction endpoints and sharp corners are protected. Reconvert to apply a change. Smoothed curves usually remain polylines; this does not create new ARC or spline entities.</p></div>
             <div><strong>Straighten lines</strong><p>Reduces small scanning distortions using best-fit lines. Optional orthogonal snapping affects only nearly horizontal or vertical lines; keep it off for drawings with intentional slopes.</p></div>
             <div><strong>Hatch recognition</strong><p>Detects repeated line patterns inside reliable closed regions and creates CAD <code>HATCH</code> entities. Tiny border gaps can be repaired automatically; larger gaps need manual selection.</p></div>
-            <div><strong>Dashed and hidden lines</strong><p>Looks for regularly spaced collinear dash strokes and assigns <code>DASHED</code> or <code>HIDDEN</code> CAD linetypes. Classification reflects graphic rhythm, not proven engineering meaning.</p></div>
-            <div><strong>Text and watermark</strong><p>Optional OCR can convert printed labels to CAD text; verify every reading. PDF-XChange trial-overlay filtering is targeted and may not detect all watermarks.</p></div>
+            <div><strong>Detect dashed lines</strong><p>Detects DASHED, HIDDEN, CENTER, PHANTOM and DASHDOT patterns. Review the reconstructed patterns and per-sheet override under Layers; classification describes visible rhythm rather than engineering meaning.</p></div>
+            <div><strong>Text and annotation options</strong><p><strong>Export recognized text (OCR)</strong> creates editable text. Separate controls find dimensions, remove detected text, or remove matched dimensions and labels. Text detection can run even when text export is off. PDF-XChange trial-overlay filtering remains targeted and may miss other watermarks.</p></div>
           </div>
         </section>
 
+        <section class="doc-section" id="linetypes">
+          <div class="section-kicker">07 / LINE PATTERNS</div>
+          <h2>Recognize center, phantom and dash-dot lines</h2>
+          <div class="setting-list">
+            <div><strong>DASHED / HIDDEN</strong><p>Regular dashes; shorter marks may be classified as HIDDEN. That classification does not establish which objects are hidden.</p></div>
+            <div><strong>CENTER</strong><p>Repeating long-short strokes. The detector can join small collinear junction fragments and needs at least two visible cycles.</p></div>
+            <div><strong>PHANTOM</strong><p>A repeating long-short-short pattern.</p></div>
+            <div><strong>DASHDOT</strong><p>Repeating long-dot marks. DXF uses a zero-length dot element; dots erased by speckle cleanup or lost at low resolution cannot be recovered reliably.</p></div>
+          </div>
+          <p>Enable <strong>Detect dashed lines</strong> in Convert and reconvert. Review the counts and patterns in Vectors only. Under <strong>Layers → Detected linetypes</strong>, choose Auto or a sheet-wide override. A few clipped marks, irregular spacing, merged text or heavy intersections may remain as ordinary linework. Crossing perpendicular geometry stays separate.</p>
+        </section>
+
+        <section class="doc-section" id="annotation-cleanup">
+          <div class="section-kicker">08 / ANNOTATION CLEANUP</div>
+          <h2>Keep text from becoming linework</h2>
+          <p class="lead">Choose these options before conversion, then reconvert the sheet. Detection and text export are separate choices.</p>
+          <div class="setting-list">
+            <div><strong>Export recognized text (OCR)</strong><p>Locates scanned lettering, masks its raster strokes and exports editable CAD TEXT. Recognized native PDF text can also become editable text. Check every reading.</p></div>
+            <div><strong>Remove detected text (no text export)</strong><p>Runs local OCR to locate lettering, masks detected strokes and omits both OCR and native text entities. Detected labels remain available internally for dimension QA. Missed text can still be traced as linework.</p></div>
+            <div><strong>Find dimensions during conversion</strong><p>Enabled by default. Supplies recognized labels to Dimension review even when OCR text export is off. This setting alone does not remove raster lettering.</p></div>
+            <div><strong>Remove matched dimensions &amp; labels</strong><p>Removes eligible matched baselines, their witness lines and labels. Unmatched notes, detached arrowheads, shared chain baselines, leader-linked geometry, inferred readings and low-confidence matches can remain. Inspect the cleanup result before export.</p></div>
+          </div>
+          <div class="note"><strong>What needs reconversion?</strong><p>Recognition, cleanup and curve-smoothing changes require reconversion. Layer names, recognized-group linetype overrides, text height and plot scale apply to the next export without reconversion. Original imported files are unchanged; reconversion rebuilds geometry, so finish it before manual hatch or CAD repairs.</p></div>
+        </section>
+
         <section class="doc-section" id="cad-geometry">
-          <div class="section-kicker">05 / QUALITY</div>
+          <div class="section-kicker">09 / QUALITY</div>
           <h2>What becomes editable CAD?</h2>
           <p class="lead">The vector preview shows the reconstructed CAD geometry, not just a processed black-and-white image. Recognition is still experimental.</p>
           <div class="entity-grid">
             <div class="entity"><div class="entity-icon"><svg viewBox="0 0 90 58" aria-hidden="true"><path d="M15 42 72 15" fill="none" stroke="#1a8988" stroke-width="2.2"/></svg></div><code>LINE / LWPOLYLINE</code><p>Traced centerlines and path geometry</p></div>
             <div class="entity"><div class="entity-icon"><svg viewBox="0 0 90 58" aria-hidden="true"><circle cx="45" cy="29" r="20" fill="none" stroke="#1a8988" stroke-width="2.2"/><circle cx="45" cy="29" r="2" fill="#1a8988"/></svg></div><code>CIRCLE</code><p>Fitted center and radius</p></div>
             <div class="entity"><div class="entity-icon"><svg viewBox="0 0 90 58" aria-hidden="true"><defs><pattern id="hatch-graphic" width="8" height="8" patternTransform="rotate(30)" patternUnits="userSpaceOnUse"><line x1="0" x2="0" y1="0" y2="8" stroke="#1a8988" stroke-width="1.3"/></pattern></defs><rect x="12" y="11" width="66" height="36" fill="url(#hatch-graphic)" stroke="#1a8988"/></svg></div><code>HATCH</code><p>Diagonal, crosshatch or solid fill</p></div>
-            <div class="entity"><div class="entity-icon"><svg viewBox="0 0 90 58" aria-hidden="true"><path d="M10 29H80" fill="none" stroke="#1a8988" stroke-width="2.3" stroke-dasharray="14 8"/></svg></div><code>DASHED / HIDDEN</code><p>Pattern-aware line entities</p></div>
-            <div class="entity"><div class="entity-icon"><svg viewBox="0 0 90 58" aria-hidden="true"><text x="19" y="38" fill="#1a8988" font-size="27" font-family="Arial" font-weight="600">Aa</text></svg></div><code>TEXT</code><p>Recognized PDF text and optional OCR</p></div>
+            <div class="entity"><div class="entity-icon"><svg viewBox="0 0 90 58" aria-hidden="true"><path d="M10 29H80" fill="none" stroke="#1a8988" stroke-width="2.3" stroke-dasharray="14 8"/></svg></div><code>LINETYPE</code><p>DASHED, HIDDEN, CENTER, PHANTOM and DASHDOT</p></div>
+            <div class="entity"><div class="entity-icon"><svg viewBox="0 0 90 58" aria-hidden="true"><text x="19" y="38" fill="#1a8988" font-size="27" font-family="Arial" font-weight="600">Aa</text></svg></div><code>TEXT</code><p>Recognized text and dimension labels in Simplex</p></div>
           </div>
           <div class="note warning"><strong>Review every sheet</strong><p>Look for missing lines, duplicate traces, open intersections, misidentified dashed patterns, circular details that should be arcs, and incorrect hatch boundaries. Use AutoCAD or Civil 3D to validate before engineering use.</p></div>
         </section>
 
         <section class="doc-section" id="hatch-editing">
-          <div class="section-kicker">06 / REPAIR TOOLS</div>
+          <div class="section-kicker">10 / REPAIR TOOLS</div>
           <h2>Repair a hatch boundary</h2>
           <p class="lead">For sections with damaged or missing hatch borders, the app can create a manually bounded native HATCH without reconverting the entire source sheet.</p>
           <ol class="numbered">
@@ -175,56 +222,62 @@
         </section>
 
         <section class="doc-section" id="cad-repair">
-          <div class="section-kicker">07 / CAD CLEANUP</div>
+          <div class="section-kicker">11 / CAD CLEANUP</div>
           <h2>Repair disconnected and duplicate linework</h2>
           <p class="lead">VecBuilt v0.8 includes a non-destructive, review-first tool to improve the connectivity of reconstructed CAD geometry after conversion.</p>
           <div class="steps">
             <article class="step"><span class="step-number">01</span><div><h3>Scan the reconstructed drawing</h3><p>Convert a sheet and choose the <strong>Repair</strong> ribbon tab. Select <strong>Scan geometry</strong>. Default maximum gap: 3 source pixels, adjustable from 0.2 to 25. The scan analyzes the exported linework, not the original PDF pixels.</p></div><span class="step-meta">SCAN</span></article>
             <article class="step"><span class="step-number">02</span><div><h3>Inspect highlighted suggestions</h3><p>Select an issue in the Geometry repair drawer. The canvas centers the problem; amber shows the current line segments and cyan indicates the replacement geometry. Suggestions cover identical duplicates, small collinear gaps and candidate trim/extend intersections.</p></div><span class="step-meta">REVIEW</span></article>
-            <article class="step"><span class="step-number">03</span><div><h3>Apply individual or low-risk edits</h3><p>Use <strong>Apply selected</strong> after inspecting the suggested change. <strong>Apply low-risk</strong> handles only near-identical duplicates and tiny aligned joins without branching endpoints. Angled corner corrections always require individual approval.</p></div><span class="step-meta">REPAIR</span></article>
-            <article class="step"><span class="step-number">04</span><div><h3>Undo, redo and compare</h3><p>Use the ribbon <strong>Undo</strong> and <strong>Redo</strong> actions to compare before/after geometry. Up to 20 repair transactions are retained per sheet while it stays in the browser. The cleaned geometry is used in both the vector preview and the DXF export.</p></div><span class="step-meta">VERIFY</span></article>
+            <article class="step"><span class="step-number">03</span><div><h3>Select and apply multiple repairs</h3><p>Check the boxes beside the suggestions you want, then choose <strong>Apply selected (N)</strong>. <strong>Select visible</strong> checks the current filtered list; <strong>Clear selection</strong> unchecks everything. Selection persists across filters, and all checked repairs appear in the overlay. Review angled intersections before including them. <strong>Apply low-risk</strong> remains a separate action for near-identical duplicates and tiny aligned joins.</p></div><span class="step-meta">REPAIR</span></article>
+            <article class="step"><span class="step-number">04</span><div><h3>Undo, redo and compare</h3><p>Use the ribbon <strong>Undo</strong> and <strong>Redo</strong> actions to compare before/after geometry. One batch is one undoable transaction. Overlapping or stale suggestions are skipped and reported; inspect the refreshed list before trying again. Rescanning or switching sheets clears selection. Up to 20 repair transactions are retained per sheet while it stays in the browser. The cleaned geometry is used in both the vector preview and the DXF export.</p></div><span class="step-meta">VERIFY</span></article>
             <article class="step"><span class="step-number">05</span><div><h3>Deliver the cleanup audit</h3><p>Batch ZIP exports include a JSON report in <code>repair-QA</code> and accepted repair counts in <code>QA-manifest.json</code>. Re-check dimension QA, endpoints and intersections in Civil 3D or AutoCAD after any topology edit.</p></div><span class="step-meta">EXPORT</span></article>
           </div>
           <div class="note warning"><strong>Important safety limits</strong><p>These are geometry-based suggestions, not guarantees of design intent. Intentional gaps, utilities, symbols, drafting conventions and dimension leaders can resemble cleanup errors. VecBuilt never silently applies uncertain fixes. Circles, hatches, curved polylines, text and recognized dash patterns are excluded from this repair stage. Finish hatch corrections before applying CAD repairs, because rebuilding hatch classifications changes the underlying geometry. Dense sheets may exceed the capped review list.</p></div>
         </section>
 
         <section class="doc-section" id="export">
-          <div class="section-kicker">07 / DELIVERY</div>
+          <div class="section-kicker">12 / DELIVERY</div>
           <h2>Layers and export</h2>
-          <p class="lead">Use the <strong>Layers</strong> tab to name the linework, text, and hatch layers. You can choose a drawing discipline preset and override detected dash groups to all DASHED or all HIDDEN.</p>
+          <p class="lead">Use the <strong>Layers</strong> tab to name the linework, text, and hatch layers. You can choose a drawing discipline preset and override all detected pattern groups on that sheet to DASHED, HIDDEN, CENTER, PHANTOM or DASHDOT. This changes already recognized groups; it does not classify unrecognized fragments.</p>
           <div class="export-grid">
             <div><div class="file-icon">DXF</div><h3>Download DXF</h3><p>Exports the selected converted sheet as editable CAD entities. Studio also provides a quick DXF button in the header after conversion.</p></div>
-            <div><div class="file-icon zip">ZIP</div><h3>Batch ZIP</h3><p>Downloads DXFs for completed sheets plus a <code>QA-manifest.json</code> with calibration, processing, and geometry-recognition diagnostics.</p></div>
+            <div><div class="file-icon zip">ZIP</div><h3>Batch ZIP</h3><p>Downloads DXFs for completed sheets, dimension/repair QA reports when available, and <code>QA-manifest.json</code> with calibration, plot scale, text style, cleanup, recognition and integrity diagnostics. Colliding sheet names receive unique filenames; QA sidecars follow those names.</p></div>
           </div>
+          <div class="note"><strong>Checks before download</strong><p>Single and ZIP exports check required DXF sections and tables, layer plot-style references, handles, entity structure and finite coordinates. Empty or invalid output is blocked. An unanswered sheet-scale question blocks that sheet’s export; one invalid sheet stops the batch ZIP download. These checks do not certify Civil 3D compatibility or engineering accuracy.</p></div>
           <div class="note warning"><strong>DXF, not DWG</strong><p>Native DWG output and intelligent Civil 3D objects such as alignments, surfaces, and pipe networks are not supported. Open the DXF in AutoCAD or Civil 3D and save a DWG there if required.</p></div>
         </section>
 
         <section class="doc-section" id="troubleshooting">
-          <div class="section-kicker">08 / QUESTIONS</div>
+          <div class="section-kicker">13 / QUESTIONS</div>
           <h2>Troubleshooting</h2>
           <div class="faq">
             <details><summary>My converted drawing is missing thin lines. What should I change?</summary><p>Try 200 DPI instead of 150 DPI, then Adaptive threshold if the source is faded. Reduce speckle cleanup and the minimum line length cautiously. Reconvert and compare in Overlay and Vectors only.</p></details>
-            <details><summary>Why are some curved objects made of segments?</summary><p>True CIRCLE fitting is limited to round features with enough visible evidence. An arc, ellipse, partial circle, or heavily obscured feature may remain a polyline. Confirm shape and radius manually in CAD.</p></details>
+            <details><summary>Why are some curved objects made of segments?</summary><p>Enable <strong>Convert → Smooth curves &amp; preserve small details</strong> and reconvert. Small radii receive finer simplification so they are less faceted. A curve may still be a smoothed polyline: only sufficiently supported circles become CIRCLE entities. Increase source resolution when the curve spans too few pixels, and verify the shape in CAD.</p></details>
             <details><summary>Why did a dashed utility line become a hidden line?</summary><p>The classifier recognizes a pattern of marks, not the engineering meaning. Use the detected linetype override in Layers for the selected sheet, then verify the result in CAD.</p></details>
             <details><summary>Why didn't my hatch become a HATCH entity?</summary><p>The automatic detector needs a reliable closed boundary and consistent repeated strokes. For incomplete section borders, use Review &amp; scale → Hatch editor (Studio) to select a polygon and choose a pattern.</p></details>
             <details><summary>The scale is wrong after exporting. What should I check?</summary><p>Confirm you selected the correct units, clicked the exact known endpoints, and measured a substantial distance. Recalibrate the sheet and check a second independent dimension in CAD. Calibration does not supply survey coordinates.</p></details>
-            <details><summary>Why is a large PDF taking so long?</summary><p>Large engineering sheets are processed tile by tile. Choose 150 DPI first, crop to the required drawing area, and disable OCR if you only need geometry. High DPI and OCR cost more CPU and memory.</p></details>
+            <details><summary>Why is a large PDF taking so long?</summary><p>Large engineering sheets are processed tile by tile. Choose 150 DPI first, crop to the required drawing area, and disable <strong>Export recognized text (OCR)</strong>, <strong>Find dimensions during conversion</strong>, <strong>Remove detected text (no text export)</strong>, and <strong>Remove matched dimensions &amp; labels</strong> if you want to avoid OCR completely. Any of these options can require OCR. Multiple orientations increase processing time; high DPI also costs CPU and memory.</p></details>
+            <details><summary>Dimensions are not being found. What should I check?</summary><p>Enable <strong>Find dimensions during conversion</strong> and reconvert. Check rotated labels and fractions in the Dimensions drawer; OCR can confuse digits such as 2 and 7. Review Original OCR, correct the label, and pick endpoints manually when needed. Leader and chain associations are provisional.</p></details>
+            <details><summary>Text is still showing up as lines. Why?</summary><p>Enable <strong>Remove detected text (no text export)</strong> to omit detected lettering, or <strong>Export recognized text (OCR)</strong> to replace it with editable TEXT, then reconvert. Neither option can remove text that detection misses. Use higher-quality input and compare against Original.</p></details>
+            <details><summary>My 0.10-inch text is too large or too small.</summary><p>Verify CAD units, the selected sheet’s plot ratio and the scale used when plotting in CAD. The import question does not calibrate geometry. Use Layers → Set sheet scale and export again; for 1″ = 20′ use 1:240, not 1:20.</p></details>
+            <details><summary>Export is blocked, or Civil 3D reports a DXF table error.</summary><p>Answer each sheet’s scale question first. For an integrity error, note the export message and sheet name. Refresh the app after an update and create a new DXF; older downloads retain their original defects. If CAD still rejects the new file, retain the exact error and line number and provide the failing DXF privately for inspection. A clean parser check does not guarantee acceptance by every CAD importer.</p></details>
             <details><summary>Can I export a DWG or Civil 3D surface?</summary><p>Not directly. Export DXF, open and check it in AutoCAD or Civil 3D, and save as DWG if needed. The app does not create parametric Civil 3D objects.</p></details>
-            <details><summary>Does the converter work offline?</summary><p>Conversion runs in your browser after the required code has loaded, but the app and some dependencies are hosted externally. Initial loading and optional OCR language-model downloads can require a network connection. Offline availability is not guaranteed.</p></details>
+            <details><summary>Does the converter work offline?</summary><p>Conversion runs in your browser after the required code has loaded, but the app and some dependencies are hosted externally. Initial loading and OCR language-model downloads can require a network connection. Offline availability is not guaranteed.</p></details>
           </div>
         </section>
 
         <section class="doc-section" id="privacy">
-          <div class="section-kicker">09 / SECURITY</div>
+          <div class="section-kicker">14 / SECURITY</div>
           <h2>Privacy and limitations</h2>
           <p class="lead">The converter is designed to process files locally in the browser. No application endpoint uploads your selected PDF, image, or generated DXF for conversion.</p>
           <div class="privacy-box">
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
-            <div><strong>Your drawing processing stays local</strong><p>Libraries and optional OCR models can still be downloaded over the internet. Avoid adding confidential project files to public GitHub issues, shared links, or screenshots.</p></div>
+            <div><strong>Your drawing processing stays local</strong><p>Libraries and OCR models can still be downloaded over the internet. Avoid adding confidential project files to public GitHub issues, shared links, or screenshots.</p></div>
           </div>
           <p>VecBuilt is an experimental drawing-reconstruction tool. Source quality, print scaling, skew, line joins, OCR, and recognition heuristics affect accuracy. The output is not survey-georeferenced, engineering certified, or a substitute for professional CAD review.</p>
         </section>
 
+        <p class="lead">Help updated November 5, 2026. Control names and workflows reflect the current Studio and Classic interfaces.</p>
         <footer class="page-footer">
           <div><strong>VecBuilt</strong><span>Help Center · Browser-local PDF to DXF</span></div>
           <div class="footer-links"><a href="../">Open Studio</a><a href="../classic/">Classic app</a><a href="https://github.com/acostavictor/asbuilt-vectorizer" target="_blank" rel="noopener noreferrer">GitHub repository ↗</a></div>
