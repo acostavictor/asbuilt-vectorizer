@@ -10,6 +10,22 @@ VecBuilt's mark is a vector path V with anchor-point nodes, with raster pixels d
 
 Full usage notes live in [`docs/LOGO.md`](docs/LOGO.md). The repository and Pages URLs still use the old `asbuilt-vectorizer` slug; only the display name changed.
 
+## v0.8: Intelligent CAD Cleanup & Repair
+
+VecBuilt now offers a **Repair** ribbon tab in Studio, Studio preview and Classic. It analyzes the existing reconstructed LINE geometry *after* conversion. It does not change the original PDF, circles, hatches, text, dashed/hidden linetype entities, or multi-vertex curves.
+
+### Repair workflow
+
+1. Convert a sheet as usual, then choose **Repair → Scan geometry**. The default maximum endpoint gap is 3 **source pixels**, adjustable between 0.2 and 25 pixels. Repair operates at the actual selected conversion DPI, not zoomed-preview pixels.
+2. Review the findings in the **Geometry repair** drawer. Clicking a finding centers it in the viewport: amber depicts the existing geometry and cyan depicts the proposed result. Findings are categorized as **duplicate segments**, **collinear line gaps**, or **potential corner/intersection trim/extend**.
+3. Choose **Apply selected** for a reviewed proposal or **Dismiss suggestion** for an intentional gap. **Apply low-risk** only accepts near-identical duplicates and very short, highly aligned, unbranched joins. Intersection corrections are **always manual-review only**.
+4. **Undo/Redo** restores/reapplies geometry snapshots per sheet (up to 20 undo operations). Applying a new repair after Undo discards the redo branch, as expected.
+5. Confirm the **Vectors only** preview and export DXF as usual. Accepted edits are actual LINE/LWPOLYLINE replacements, not just preview highlights. The batch ZIP includes \`repair-QA/<sheet>-repairs.json\` and the \`QA-manifest.json\` has repair counts and an audit log.
+
+**Safety:** Cleanup proposals are deterministic and verify their original source endpoints before applying. No source geometry is mutated in place. Curved polylines, CIRCLE, HATCH and pattern-aware dashed/hidden entities are not modified by this pass. Changes to the source drawing, re-conversion or hatch reconstruction invalidate prior repair proposals, so the app prevents manual hatch modifications that would silently discard approved CAD repairs. Perform hatch corrections first, then CAD Repair. Rechecking dimension annotations after geometry repair is required; confirmations are invalidated and endpoint associations refreshed.
+
+**Known limitations:** This is a conservative line connectivity repair pass, not complete topological CAD modeling. It does not automatically fix arbitrary overlaps, break long lines at every interior intersection, reconstruct missing walls or doors, or repair multi-point curves. Proposals cap at 350 (examines up to 75,000 two-point segments); dense sheets may contain additional issues. "Low-risk" is not "guaranteed correct"; reviewing the original scan and checking exported DXF connectivity/coordinates in AutoCAD or Civil 3D remains mandatory. Repair detection may temporarily occupy the browser's main thread for large drawings.
+
 ## v0.7: Printed dimension recognition and QA validation
 
 **Dimensions** is now a separate ribbon tab in the default Studio, the Studio preview, and Classic. It works entirely in the browser and does not depend on a vision API or upload project data.
