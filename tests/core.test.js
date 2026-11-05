@@ -6,14 +6,14 @@ import {buildDxf,filenameBase} from "../src/dxf.js";
 test("Line entity uses requested layer and engineering units",()=>{
  const out=buildDxf({width:100,height:100,paths:[[[10,20],[80,20]]],
    unitsPerPixel:2,geometryLayer:"C-UTIL",units:"feet"});
- assert.match(out.content,/0\nLINE\n8\nC-UTIL\n/);
+ assert.match(out.content,/0\nLINE\n5\n[0-9A-F]+\n100\nAcDbEntity\n8\nC-UTIL\n/);
  assert.match(out.content,/70\n2\n/);
  assert.match(out.content,/10\n20\n20\n160\n/);
  assert.equal(out.geometryCount,1);
 });
 test("Annotations are editable DXF TEXT entities",()=>{
  const dxf=buildDxf({width:200,height:100,texts:[{value:"EX PIPE",x:20,y:60,height:10}],textLayer:"C-ANNO"});
- assert.match(dxf.content,/0\nTEXT\n8\nC-ANNO\n/);assert.equal(dxf.textCount,1);
+ assert.match(dxf.content,/0\nTEXT\n5\n[0-9A-F]+\n100\nAcDbEntity\n8\nC-ANNO\n/);assert.equal(dxf.textCount,1);
 });
 test("Traces a synthetic horizontal black raster line",()=>{
  const w=60,h=40,rgba=new Uint8ClampedArray(w*h*4);rgba.fill(255);

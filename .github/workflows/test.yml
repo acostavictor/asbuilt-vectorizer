@@ -31,3 +31,10 @@ jobs:
           node --check studio-preview/studio.js
       - name: Test local conversion core
         run: npm test
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Independently validate DXF with ezdxf
+        run: |
+          python -m pip install ezdxf==1.4.5
+          python tests/validate-dxf.py

@@ -59,7 +59,7 @@ test("Produces a native HATCH entity, not individual stroke entities",()=>{
     hatches:recognized.hatches,hatchLayer:"C-HATCH",unitsPerPixel:.5,units:"feet"});
   assert.equal(dxf.hatchCount,1);
   assert.equal(dxf.geometryCount,1); // closed boundary polyline, not ~20 separate hatch lines
-  assert.match(dxf.content,/0\nHATCH\n100\nAcDbEntity\n8\nC-HATCH\n100\nAcDbHatch\n/);
+  assert.match(dxf.content,/0\nHATCH\n5\n[0-9A-F]+\n100\nAcDbEntity\n8\nC-HATCH\n100\nAcDbHatch\n/);
   assert.match(dxf.content,/2\nAV_SCAN\n70\n0\n71\n0\n91\n1\n/);
   assert.match(dxf.content,/92\n3\n72\n0\n73\n1\n93\n4\n/);
   assert.match(dxf.content,/78\n1\n53\n-45\n/);

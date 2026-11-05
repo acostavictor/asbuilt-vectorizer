@@ -1,4 +1,4 @@
-import {buildDxf,filenameBase} from "./dxf.js";
+import {buildDxf,filenameBase,uniqueDxfName} from "./dxf.js";
 import {recognizeLineTypes,effectiveLineType} from "./linetype.js";
 import {straightenPaths} from "./straightening.js";
 import {detectHatches} from "./hatch.js";
@@ -603,19 +603,19 @@ async function exportZip(){
   busy(true);
   try{
     status("Packaging "+completed.length+" DXF files...");
-    const zip=new window.JSZip(),manifest=[];
+    const zip=new window.JSZip(),manifest=[],usedNames=new Set();
     for(const s of completed){
-      const output=makeDxf(s),name=filenameBase(s.name)+".dxf";
+      const output=makeDxf(s),stem=uniqueDxfName(s.name,usedNames),name=stem+".dxf";
       zip.file(name,output.content);
       if(s.dimensions?.length){
-        zip.file("dimension-QA/"+filenameBase(s.name)+"-dimensions.csv",dimensionUI.report(s));
+        zip.file("dimension-QA/"+stem+"-dimensions.csv",dimensionUI.report(s));
       }
       if(s.repairSession?.scan){
-        zip.file("repair-QA/"+filenameBase(s.name)+"-repairs.json",
+        zip.file("repair-QA/"+stem+"-repairs.json",
           JSON.stringify(repairUI.report(s),null,2));
       }
       manifest.push({name:s.name,output:name,entities:output.geometryCount,texts:output.textCount,
-        layers:output.layers,units:s.units,calibrated:s.calibrated,unitsPerPixel:s.scale,
+        integrity:output.integrity,layers:output.layers,units:s.units,calibrated:s.calibrated,unitsPerPixel:s.scale,
         pageRelativeCoordinates:true,processingDpi:s.processingDpi,tilesProcessed:s.tilesProcessed,
         linetypes:output.lineTypeCounts,linetypePatterns:output.linePatterns,
         patternRecognition:s.patternStats||null,linetypeOverride:s.lineTypeOverride,

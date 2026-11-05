@@ -18,8 +18,8 @@ test("CAD CIRCLE entity contains exact center/radius instead of short LWPOLYLINE
    unitsPerPixel:.5,geometryLayer:"C-SITE"});
  assert.equal(out.circleCount,1);
  assert.equal(out.geometryCount,1);
- assert.match(out.content,/0\nCIRCLE\n100\nAcDbEntity\n8\nC-SITE\n100\nAcDbCircle\n10\n35\n20\n40\n30\n0\n40\n11\n/);
- assert.doesNotMatch(out.content,/0\nLWPOLYLINE\n/);
+ assert.match(out.content,/0\nCIRCLE\n5\n[0-9A-F]+\n100\nAcDbEntity\n8\nC-SITE\n100\nAcDbCircle\n10\n35\n20\n40\n30\n0\n40\n11\n/);
+ assert.doesNotMatch(out.content,/0\nLWPOLYLINE\n5\n[0-9A-F]+\n/);
 });
 test("Slightly open closed-boundary contour is repaired but an open U remains untouched",()=>{
  const poly=[[10,10],[150,10],[150,120],[10,120],[12,12]];
@@ -36,7 +36,7 @@ test("User-drawn polygon generates an editable solid CAD HATCH",()=>{
  assert.equal(result.hatches.length,1);
  const out=buildDxf({width:200,height:150,hatches:result.hatches,unitsPerPixel:1});
  assert.equal(out.hatchCount,1);assert.equal(out.solidHatchCount,1);
- assert.match(out.content,/0\nHATCH\n100\nAcDbEntity\n8\nHATCH-REVIEW\n/);
+ assert.match(out.content,/0\nHATCH\n5\n[0-9A-F]+\n100\nAcDbEntity\n8\nHATCH-REVIEW\n/);
  assert.match(out.content,/2\nSOLID\n70\n1\n71\n0\n91\n1\n/);
  assert.doesNotMatch(out.content,/78\n1\n/);
 });
