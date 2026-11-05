@@ -122,11 +122,12 @@ export function setupDimensionUI({getSheet,viewport,status,redraw,download,showO
       "Correct the OCR label to a valid linear measurement, then pick endpoints.":
       "No reliable line association. Pick two real dimension endpoints on the drawing.";
   }
-  function scan(sheet,{preserveManual=true}={}){
+  function scan(sheet,{preserveManual=true,useCurrentGeometry=false}={}){
     if(!sheet||sheet.status!=="done")return;
     const manual=preserveManual?(sheet.dimensions||[]).filter(d=>d.manualSource):[];
     const before=(sheet.dimensions||[]).filter(d=>!d.manualSource);
-    const detected=detectPrintedDimensions(sheet.texts,sheet.sourcePaths?.length?sheet.sourcePaths:sheet.paths);
+    const detected=detectPrintedDimensions(sheet.texts,useCurrentGeometry?sheet.paths:
+      (sheet.sourcePaths?.length?sheet.sourcePaths:sheet.paths));
     for(const d of detected){
       const matching=before.find(b=>b.originalLabel===d.originalLabel&&
         Math.abs(b.textX-d.textX)<2&&Math.abs(b.textY-d.textY)<2);
