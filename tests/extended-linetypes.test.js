@@ -20,7 +20,7 @@ for(const [type,cycle] of [['CENTER',[40,10]],['PHANTOM',[40,8,8]],['DASHDOT',[4
 }
 test('Irregular mixed marks and too few cycles stay as original geometry',()=>{
  const paths=train([40,7,16,3],2);assert.equal(recognizeLineTypes(paths).styledPaths.length,0);
- assert.equal(recognizeLineTypes(train([40,10],2)).styledPaths.length,0);
+ assert.equal(recognizeLineTypes(train([40,10],1)).styledPaths.length,0);
 });
 import {vectorize} from '../src/geometry.js';
 for(const [type,cycle] of [['CENTER',[40,10]],['PHANTOM',[40,8,8]],['DASHDOT',[40,3]]]){

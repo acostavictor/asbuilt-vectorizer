@@ -59,7 +59,7 @@ export function setupDimensionUI({getSheet,viewport,status,redraw,download,showO
     const list=$("dimensionList");list.replaceChildren();
     if(!dims.length){
       const p=document.createElement("div");p.className="dimension-result-empty";
-      p.textContent="No linear dimension notes found. For raster scans, enable OCR in Convert and reconvert, or add a printed measurement manually.";
+      p.textContent="No linear dimension notes found. For raster scans, enable Find dimensions during conversion and reconvert, or add a printed measurement manually.";
       list.append(p);$("dimensionDetail").hidden=true;return;
     }
     for(let i=0;i<dims.length;i++){
@@ -76,6 +76,7 @@ export function setupDimensionUI({getSheet,viewport,status,redraw,download,showO
         n(v.measured)+" "+sheet.units+" measured · "+v.method:
         d.manualSource?"Manual note · choose endpoints":d.autoEndpoints?
         "Candidate measured line · "+v.status:"Source text · choose endpoints";
+      if(d.ocrInferred)secondary.textContent+=" · OCR units inferred—verify label";
       content.append(title,secondary);
       const tag=document.createElement("span");tag.className="dimension-result-status "+v.status;
       tag.textContent=(v.reviewed?"✓ ":"")+statusLabel[v.status];
@@ -102,6 +103,8 @@ export function setupDimensionUI({getSheet,viewport,status,redraw,download,showO
       span.textContent=title;strong.textContent=value;
       div.append(span,strong);metrics.append(div);
     }
+    if(d.rawOcrValue)metric("Original OCR",d.rawOcrValue);
+    if(d.ocrInferred)metric("OCR review","Foot mark inferred; verify digits");
     metric("Printed",v.expected===null?"—":n(v.expected)+" "+sheet.units);
     metric("Measured",v.measured===null?"—":n(v.measured)+" "+sheet.units);
     metric("Difference",v.delta===null?"—":n(v.delta)+" "+sheet.units);

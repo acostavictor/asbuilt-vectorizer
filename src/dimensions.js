@@ -27,6 +27,7 @@ function fraction(text){
 }
 export function parseDimensionLabel(raw,{defaultUnits="unitless"}={}){
   let text=String(raw??"").trim().replace(/\s+/g," ");
+  text=text.replace(/\s*\(?TYP(?:ICAL)?\)?\.?\s*$/i,"").replace(/\s*±\s*$/,"").trim();
   if(!text||text.length>48||/[=:%°Ø⌀@]/.test(text)||
      /(?:\b(?:EL|ELEV|ELEVATION|RADIUS|RAD|DIA|SLOPE|TYP|NTS|SCALE|REV|STA)\b)/i.test(text))return null;
   // Exclude point elevations, stations and symbols rather than validating
@@ -120,7 +121,7 @@ function witnessAt(point,dimension,index,radius){
     if(witness.index===dimension.index||witness.length<10)continue;
     if(Math.abs(witness.axis[0]*dimension.axis[0]+witness.axis[1]*dimension.axis[1])>.31)continue;
     const m=segmentDistance(point,witness.path[0],witness.path[1]);
-    if(m.distance<=radius&&m.t>.03&&m.t<.97)return witness;
+    if(m.distance<=radius&&m.t>=0&&m.t<=1)return witness;
   }
   return false;
 }
@@ -134,7 +135,16 @@ function associate(t,index,used){
   const radius=Math.max(22,height*5,Math.min(160,(t.bbox?.x1-t.bbox?.x0||0)*1.5));
   const options=[];
   const nearby=index.near(center,radius);
-  const baselines=nearby.slice();
+  const baselines=nearby.slice(),leaderAnchors=[];
+  for(const leader of nearby){
+    if(Math.min(Math.abs(leader.axis[0]),Math.abs(leader.axis[1]))<.15)continue;
+    for(let end=0;end<2;end++){
+      const point=leader.path[end];
+      const nearLabel=len(point,center)<height*3||nearby.some(s=>s.index!==leader.index&&
+       segmentDistance(center,...s.path).distance<height*3&&s.path.some(p=>len(p,point)<3));
+      if(nearLabel)leaderAnchors.push(leader.path[1-end]);
+    }
+  }
   // A printed label commonly interrupts the baseline. Join only collinear pieces
   // whose gap straddles this text and whose outer endpoints have witnesses.
   for(let i=0;i<Math.min(nearby.length,100);i++)for(let j=i+1;j<Math.min(nearby.length,100);j++){
@@ -148,10 +158,33 @@ function associate(t,index,used){
     const path=[left.ends[0],right.ends[1]];
     baselines.push({path,axis:u,length:len(...path),index:a.index,sourceIndex:a.sourceIndex,parts:[a,b]});
   }
+  // Chain dimensions often share one continuous baseline. Build provisional spans
+  // between perpendicular crossings; retain shared baseline geometry on removal.
+  for(const seg of nearby.slice(0,100)){
+    const crossings=[];
+    for(const w of index.near(seg.path[0],Math.min(5000,seg.length+20))){
+      const u=seg.axis,v=w.axis,den=u[0]*v[1]-u[1]*v[0];
+      if(w.index===seg.index||Math.abs(den)<.9)continue;
+      const r=[w.path[0][0]-seg.path[0][0],w.path[0][1]-seg.path[0][1]];
+      const t=(r[0]*v[1]-r[1]*v[0])/den,q=(r[0]*u[1]-r[1]*u[0])/den;
+      if(t>=-2&&t<=seg.length+2&&q>=-2&&q<=w.length+2)crossings.push(Math.max(0,Math.min(seg.length,t)));
+    }
+    const stops=[...new Set(crossings.map(t=>Math.round(t*10)/10))].sort((a,b)=>a-b);
+    for(let k=1;k<stops.length;k++){
+      if(stops[k]-stops[k-1]<30||stops[k]-stops[k-1]>=seg.length-2)continue;
+      const path=[stops[k-1],stops[k]].map(t=>[seg.path[0][0]+seg.axis[0]*t,seg.path[0][1]+seg.axis[1]*t]);
+      baselines.push({...seg,path,length:stops[k]-stops[k-1],trimmed:true});
+    }
+  }
   for(const seg of baselines){
-    if((seg.parts||[seg]).some(s=>used.has(s.index))||seg.length<30)continue;
-    const closest=segmentDistance(center,seg.path[0],seg.path[1]);
-    if(closest.distance>Math.min(radius,height*4+12)||closest.t<.12||closest.t>.88)continue;
+    const spanKey=seg.index+":"+seg.path.flat().join(",");
+    if((seg.trimmed?used.has(spanKey):(seg.parts||[seg]).some(s=>used.has(s.index)))||seg.length<30)continue;
+    const projections=[{point:center,leader:false},...leaderAnchors.map(point=>({point,leader:true}))]
+      .map(anchor=>({...segmentDistance(anchor.point,...seg.path),leader:anchor.leader}))
+      .filter(p=>p.t>=.12&&p.t<=.88&&p.distance<=(p.leader?3:Math.min(radius,height*4+12)))
+      .sort((a,b)=>(a.distance+(a.leader?height:0))-(b.distance+(b.leader?height:0)));
+    if(!projections.length)continue;
+    const closest=projections[0];
     const witnessRadius=Math.min(18,Math.max(6,height*1.6));
     const firstWitness=witnessAt(seg.path[0],seg,index,witnessRadius),lastWitness=witnessAt(seg.path[1],seg,index,witnessRadius);
     if(!firstWitness||!lastWitness||firstWitness.index===lastWitness.index)continue;
@@ -159,15 +192,17 @@ function associate(t,index,used){
     // at some locations. Keep the result explicitly provisional.
     const alignment=1-Math.min(1,Math.abs(closest.t-.5)*1.8);
     const distanceScore=1-Math.min(1,closest.distance/Math.max(1,radius));
-    const confidence=Math.min(.88,.61+.13*alignment+.12*distanceScore);
-    options.push({seg,confidence,dist:closest.distance,witnesses:[firstWitness,lastWitness]});
+    const confidence=Math.min(.88,.61+.13*alignment+.12*distanceScore+(seg.trimmed?.1:0));
+    options.push({seg,confidence:confidence-(closest.leader?.12:0),leader:closest.leader,dist:closest.distance,witnesses:[firstWitness,lastWitness]});
   }
   if(!options.length)return null;
   options.sort((a,b)=>b.confidence-a.confidence||a.dist-b.dist);
-  const best=options[0];for(const part of best.seg.parts||[best.seg])used.add(part.index);
+  const best=options[0];
+  if(best.seg.trimmed)used.add(best.seg.index+":"+best.seg.path.flat().join(","));
+  else for(const part of best.seg.parts||[best.seg])used.add(part.index);
   return {autoEndpoints:best.seg.path.map(p=>p.slice()),
-    sourcePathIndices:[...(best.seg.parts||[best.seg]).map(s=>s.sourceIndex),...best.witnesses.map(s=>s.sourceIndex)],
-    confidence:nice(best.confidence),association:"dimension-line-with-two-witnesses"};
+    sourcePathIndices:best.seg.trimmed||best.leader?[]:[...(best.seg.parts||[best.seg]).map(s=>s.sourceIndex),...best.witnesses.map(s=>s.sourceIndex)],
+    confidence:nice(best.confidence),association:best.leader?"dimension-line-via-leader":"dimension-line-with-two-witnesses"};
 }
 export function detectPrintedDimensions(texts,paths,{maxCandidates=500}={}){
   const index=makeIndex(paths),used=new Set(),out=[];
@@ -183,8 +218,9 @@ export function detectPrintedDimensions(texts,paths,{maxCandidates=500}={}){
       originalLabel:String(item.value).trim(),textX:item.x,textY:item.y,
       bbox:item.bbox?{...item.bbox}:null,height:item.height||12,
       autoEndpoints:suggestion?.autoEndpoints||null,
-      manualEndpoints:null,confidence:suggestion?.confidence||0,
-      association:suggestion?.association||null,sourcePathIndices:suggestion?.sourcePathIndices||[],reviewed:false,ignored:false});
+      manualEndpoints:null,confidence:Math.min(suggestion?.confidence||0,(item.confidence??100)/100),
+      ocrInferred:Boolean(item.ocrInferred),rawOcrValue:item.rawOcrValue||null,
+      association:suggestion?.association||null,sourcePathIndices:item.ocrInferred||(item.confidence??100)<60?[]:suggestion?.sourcePathIndices||[],reviewed:false,ignored:false});
   }
   return out;
 }

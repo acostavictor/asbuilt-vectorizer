@@ -52,7 +52,7 @@ function mixedPattern(series,gaps,limit){
  const lengths=series.map(s=>s.len),gap=median(gaps);
  if(gap<2.2||spread(gaps,gap)>limit.gapSpread)return null;
  for(const period of [2,3]){
-  if(series.length<period*3)continue;
+  if(series.length<period*2)continue;
   for(const phase of [0]){
    const long=lengths.filter((_,i)=>i%period===phase),short=lengths.filter((_,i)=>i%period!==phase);
    const dash=median(long),small=median(short);
@@ -79,7 +79,7 @@ function contiguousSeries(items,limit,minDashCount){
       const gap=next.start-previous.end;
       // Stop on overlapping strokes: they are likely different objects.
       if(gap<=1.8)break;
-      const maxGap=Math.min(limit.maxGap,Math.max(12,previous.len*limit.maxRatio));
+      const maxGap=Math.min(limit.maxGap,Math.max(32,previous.len*limit.maxRatio));
       if(gap>Math.max(maxGap,Math.min(limit.maxGap,12)))break;
       // Prevent drifting diagonals from accidentally coalescing.
       const midAngle=Math.abs(previous.angle-next.angle);
@@ -87,11 +87,12 @@ function contiguousSeries(items,limit,minDashCount){
       series.push(next);gaps.push(gap);
       if(series.length>=limit.maxSeries)break;
     }
-    if(series.length<minDashCount)continue;
+    if(series.length<4)continue;
     const dashes=series.map(v=>v.len),dash=median(dashes),gap=median(gaps);
     const dashCV=spread(dashes,dash),gapCV=spread(gaps,gap);
     const mixed=mixedPattern(series,gaps,limit);
     if(!Number.isFinite(gap)||gap<2.2||(!mixed&&gap>dash*limit.maxRatio))continue;
+    if(!mixed&&series.length<minDashCount)continue;
     if(!mixed&&(dashCV>limit.dashSpread||gapCV>limit.gapSpread||dashes.some(x=>Math.abs(x-dash)>dash*limit.dashSpread)))continue;
     const totalLength=series[series.length-1].end-series[0].start;
     if(totalLength<45||(!mixed&&totalLength<dash*minDashCount+gap*(minDashCount-1)*.6))continue;
@@ -104,7 +105,7 @@ function contiguousSeries(items,limit,minDashCount){
     // HIDDEN is a shorter-dash convention, not semantic hidden-object recognition.
     const linetype=dash<=limit.hiddenThreshold?"HIDDEN":"DASHED";
     const confidence=Math.max(.3,Math.min(.95,.94-(dashCV*.6+gapCV*.4)));
-    const matched=series.map(x=>x.index);
+    const matched=series.flatMap(x=>x.sourceIndices||[x.index]);
     runs.push({points,linetype,dashPx:dash,gapPx:gap,sourceSegments:matched.length,
       confidence,sourceIndices:matched,...mixed});
     for(const id of matched)used.add(id);
@@ -117,7 +118,7 @@ export function recognizeLineTypes(paths,{sensitivity="balanced",enabled=true}={
     stats:{candidateCount:0,recognizedRuns:0,dashedCount:0,hiddenCount:0,segmentsConsumed:0}
   };
   const loose=sensitivity==="sensitive";
-  const limit={maxStroke:loose?230:150,maxGap:loose?130:85,
+  const limit={maxStroke:loose?1200:600,maxGap:loose?130:85,
     maxRatio:loose?1.5:1.12,maxAngle:(loose?3.5:2.3)*rad,
     maxOffset:loose?4.5:3.0,dashSpread:loose?.39:.26,
     gapSpread:loose?.43:.29,hiddenThreshold:loose?25:22,maxSeries:100};
@@ -136,9 +137,24 @@ export function recognizeLineTypes(paths,{sensitivity="balanced",enabled=true}={
     bins.get(key).push(c);
   }
   const used=new Set(),styledPaths=[];
-  for(const items of bins.values()){
-    if(items.length<(loose?4:5))continue;
-    const recognized=contiguousSeries(items,limit,loose?4:5);
+  for(const [key,local] of bins){
+    const [angle,offset]=key.split(":").map(Number),near=[];
+    for(let da=-1;da<=1;da++)for(let dn=-1;dn<=1;dn++)
+      near.push(...(bins.get((angle+da)+":"+(offset+dn))||[]));
+    // Adjacent quantization buckets may hold the same scanned centerline.
+    const reference=local[0];
+    const items=near.filter(c=>Math.abs(c.angle-reference.angle)<=limit.maxAngle&&Math.abs(c.offset-reference.offset)<=limit.maxOffset)
+      .map(c=>({...c,sourceIndices:[c.index]})).sort((a,b)=>a.start-b.start);
+    const merged=[];
+    for(const item of items){
+      const previous=merged.at(-1),gap=previous?item.start-previous.end:Infinity;
+      if(previous&&gap>=-1&&gap<=1.8&&Math.abs(previous.offset-item.offset)<=1.5){
+        previous.end=Math.max(previous.end,item.end);previous.len=previous.end-previous.start;
+        previous.sourceIndices.push(...item.sourceIndices);
+      }else merged.push({...item});
+    }
+    if(merged.length<4)continue;
+    const recognized=contiguousSeries(merged,limit,loose?4:5);
     for(const run of recognized.runs){
       if(run.sourceIndices.some(i=>used.has(i)))continue;
       for(const index of run.sourceIndices)used.add(index);

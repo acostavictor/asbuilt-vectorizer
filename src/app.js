@@ -1,4 +1,5 @@
 import {buildDxf,filenameBase,uniqueDxfName} from "./dxf.js";
+import {rotatedDimensionOcr,normalizeDimensionOcr} from "./ocr-dimensions.js";
 import {detectPrintedDimensions} from "./dimensions.js";
 import {excludeDimensions} from "./annotation-cleanup.js";
 import {recognizeLineTypes,effectiveLineType,LINE_TYPES,linePattern} from "./linetype.js";
@@ -151,6 +152,7 @@ async function getOcrWorker(){
       logger:m=>{if(m.status==="recognizing text")status("OCR: "+Math.round((m.progress||0)*100)+"%");}
     });
   }
+  await state.ocrWorker.setParameters({tessedit_pageseg_mode:"11",preserve_interword_spaces:"1"});
   return state.ocrWorker;
 }
 async function readOcr(canvas){
@@ -163,11 +165,12 @@ async function readOcr(canvas){
         const text=(line.text||(line.words||[]).map(w=>w.text).join(" ")).trim();
         const box=line.bbox,confidence=line.confidence??line.conf??100;
         if(!box||!text||confidence<35)continue;
-        results.push({value:text,x:box.x0,y:box.y1,height:Math.max(3,box.y1-box.y0),
+        results.push({value:normalizeDimensionOcr(text)?.value||text,ocrInferred:normalizeDimensionOcr(text)?.ocrInferred||false,rawOcrValue:text,confidence,x:box.x0,y:box.y1,height:Math.max(3,box.y1-box.y0),
           bbox:{x0:box.x0,y0:box.y0,x1:box.x1,y1:box.y1},native:false});
       }
     }
   }
+  if($("detectDimensionText").checked||$("removeDimensions").checked)results.push(...await rotatedDimensionOcr(canvas,worker));
   return results;
 }
 function getVectorWorker(){

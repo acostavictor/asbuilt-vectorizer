@@ -236,7 +236,7 @@ Project code: Copyright (c) 2026, repository owner. **All rights reserved pendin
 ## Line patterns and annotation cleanup
 
 Conversion recognizes repeated DASHED, HIDDEN, CENTER (long-short), PHANTOM
-(long-short-short), and DASHDOT (long-dot) strokes. At least three repeating mixed
+(long-short-short), and DASHDOT (long-dot) strokes. At least two repeating mixed
 cycles are required. Names describe observed raster patterns, not engineering
 intent. Low resolution, touching strokes and erased dots can prevent recognition.
 Review detected styles and use the sheet-wide override when necessary. DXF exports
@@ -258,3 +258,21 @@ provisional: it does not reconstruct Civil 3D DIMENSION objects. Review the vect
 preview and Dimension drawer, especially shared model/witness lines. First OCR use
 requires language-model assets; recognition runs locally. Full scans and browser
 OCR quality have not been validated against every drafting standard.
+
+### Rotated and chained dimensions
+
+Dimension detection now also reads clockwise/counterclockwise rotated images,
+accepts trailing TYP/TYPICAL or a standalone approximation mark (±), and associates
+labels with endpoint extension lines, chain spans and simple bent leaders. Explicit
+numeric tolerances are not silently discarded. Dimension OCR compares original and rule-suppressed images at multiple orientations,
+which increases conversion time. Inferred missing foot marks and low-confidence
+readings remain provisional and cannot trigger automatic dimension removal.
+
+Chain spans and leader associations are provisional QA findings. Shared baselines
+and leader-linked geometry are retained by automatic annotation removal to avoid
+erasing connected model geometry. Review endpoints in the Dimensions drawer.
+
+Centerline recognition joins small collinear junction fragments, searches adjacent
+angle/intercept buckets, and accepts two visible long/short cycles with wider gaps.
+Crossing perpendicular lines remain separate. Cropped, obscured or insufficiently
+repeated patterns can still remain as ordinary linework.
