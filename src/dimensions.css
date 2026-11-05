@@ -1,0 +1,57 @@
+/* Dimension QA for Studio and Classic. Content stays client-side. */
+.workbench{position:relative}
+.dimension-drawer{
+ position:absolute;right:0;top:0;bottom:0;width:min(368px,100vw);z-index:7;
+ background:#fdfefe;border-left:1px solid #cad9df;box-shadow:-12px 0 35px #142b361f;
+ display:flex;flex-direction:column;overflow:hidden;color:#193746;font-family:inherit;
+}
+.dimension-drawer[hidden]{display:none!important}
+.dimension-drawer-header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 19px 15px;border-bottom:1px solid #e3eaee}
+.dimension-eyebrow{font-size:9px;letter-spacing:1.25px;font-weight:800;color:#228585}
+.dimension-drawer-header h2{margin:4px 0 0;font-size:19px;letter-spacing:-.7px;color:#193947;font-weight:730}
+.dimension-icon-button{background:none;border:1px solid #d8e5e9;border-radius:5px;font-size:23px;width:32px;height:32px;line-height:1;color:#748c98;display:grid;place-items:center}
+.dimension-icon-button:hover{background:#eaf4f3;color:#147e82}
+.dimension-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;padding:12px 15px;background:#f1f6f7;font-size:11px;color:#748a99;border-bottom:1px solid #e4ebee}
+.dimension-summary-item{padding:8px 6px;background:#fff;border:1px solid #e3ebee;border-radius:5px}
+.dimension-summary-item strong{display:block;font-size:18px;font-variant-numeric:tabular-nums;color:#203e4f;line-height:1.25}
+.dimension-summary-item span{font-size:10px;color:#788d9a}
+.dimension-summary-item.issue strong{color:#b46c35}
+.dimension-summary-item.match strong{color:#148575}
+.dimension-drawer-note{padding:11px 19px;font-size:10.5px;line-height:1.55;color:#607f8c;border-bottom:1px solid #e9eff1}
+.dimension-result-list{flex:1;min-height:100px;overflow:auto;padding:9px 11px;scrollbar-width:thin}
+.dimension-result-empty{padding:18px 9px;font-size:11px;color:#708c98;line-height:1.6}
+.dimension-result-row{display:flex;align-items:center;gap:9px;width:100%;background:#fff;border:1px solid transparent;border-radius:6px;text-align:left;padding:10px;min-height:58px;margin-bottom:3px;color:#25465a;cursor:pointer}
+.dimension-result-row:hover{background:#f1f8f7;border-color:#d5e9e5}
+.dimension-result-row.active{background:#e9f6f4;border-color:#9dceca;box-shadow:inset 3px 0 #208b89}
+.dimension-result-num{font:10px ui-monospace,Consolas,monospace;color:#8aa0ac;min-width:22px}
+.dimension-result-content{flex:1;min-width:0}
+.dimension-result-content strong{display:block;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:700}
+.dimension-result-content small{display:block;font-size:10px;margin-top:3px;color:#879cac;line-height:1.4}
+.dimension-result-status{flex:none;white-space:nowrap;border-radius:3px;background:#eef1f3;color:#728695;padding:4px 6px;font-size:9px;font-weight:760}
+.dimension-result-status.match{background:#e3f4ed;color:#187b63}
+.dimension-result-status.mismatch{background:#fff0e5;color:#ad6227}
+.dimension-result-status.unmatched,.dimension-result-status.uncalibrated,.dimension-result-status.needs-units,.dimension-result-status.unreadable{background:#fff5e8;color:#9e7540}
+.dimension-result-status.ignored{background:#eef0f2;color:#9daab3}
+.dimension-detail{flex:none;padding:16px 17px;border-top:1px solid #dfe9eb;background:#fff;max-height:48%;overflow:auto}
+.dimension-detail[hidden]{display:none!important}
+.dimension-detail-heading{font-size:10px;font-weight:780;color:#7b949f;letter-spacing:.8px;display:flex;justify-content:space-between;gap:10px}
+.dimension-detail-heading span{font:10px ui-monospace,Consolas,monospace;color:#5b8890}
+.dimension-detail-label{display:flex;flex-direction:column;gap:5px;margin-top:11px;font-size:11px;font-weight:650;color:#46667a}
+.dimension-detail-label input{height:36px;border:1px solid #ccdfe3;border-radius:5px;padding:6px 9px;color:#234d5d;background:#f9fcfc;font-size:13px;width:100%}
+.dimension-detail-metrics{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:13px 0;font-size:10.5px}
+.dimension-detail-metrics>div{background:#f4f8f9;border-radius:4px;padding:9px}
+.dimension-detail-metrics span{display:block;color:#8599a5;font-size:9px;letter-spacing:.15px}
+.dimension-detail-metrics strong{display:block;font:600 13px ui-monospace,Consolas,monospace;color:#345568;margin-top:4px;overflow-wrap:anywhere}
+.dimension-detail-actions{display:flex;gap:6px;flex-wrap:wrap}
+.dimension-detail-actions button{height:32px;border:1px solid #d8e5e9;background:#f9fbfb;border-radius:5px;padding:5px 9px;font-size:10px;color:#3e6876;font-weight:680}
+.dimension-detail-actions button:hover:not(:disabled){background:#e8f5f2;border-color:#95c3c2}
+.dimension-detail-actions button:disabled{opacity:.4}
+.dimension-detail-actions #dimConfirm{background:#12847f;border-color:#12847f;color:white}
+.dimension-detail-actions #dimConfirm:hover:not(:disabled){background:#0d6966}
+.dimension-detail-footnote{font-size:10px;color:#7d929d;line-height:1.55;margin:10px 0 0}
+.dimension-drawer-bottom{padding:10px 17px;border-top:1px solid #e2ebee;background:#f9fbfc;color:#8a9caa;font-size:10px;line-height:1.5}
+.drawing-view.mode-dimension{cursor:crosshair}
+#panel-dimensions .ribbon-group{align-self:stretch}
+#panel-dimensions .ribbon-controls{min-height:39px}
+@media(max-width:850px){.dimension-drawer{width:min(330px,85vw)}}
+@media(max-width:560px){.dimension-drawer{width:100%;box-shadow:none}.dimension-detail{max-height:43%}}
