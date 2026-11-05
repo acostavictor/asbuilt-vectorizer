@@ -265,19 +265,19 @@
       <button id="repairClose" class="repair-icon-button" type="button" aria-label="Close geometry repair">×</button>
     </div>
     <div id="repairSummary" class="repair-summary" role="status">Convert a drawing, then scan its geometry.</div>
-    <p class="repair-help">All changes require review. <strong>Apply low-risk</strong> only accepts nearly identical duplicate lines and very short, highly aligned gaps.</p>
+    <p class="repair-help">Check multiple suggestions, then choose <strong>Apply selected</strong> to repair them together. Select visible uses the current filter. Overlapping fixes are skipped; rescan to review remaining issues.</p>
     <div class="repair-filters">
       <label for="repairFilter">Show</label>
       <select id="repairFilter"><option value="all">All issues</option><option value="duplicate">Duplicates</option><option value="join">Line gaps</option><option value="corner">Intersections</option><option value="safe">Low-risk only</option><option value="review">Manual review</option></select>
     </div>
     <div class="repair-list" id="repairList" aria-label="Proposed geometry corrections"></div>
     <section id="repairDetail" class="repair-detail" hidden>
-      <div class="repair-detail-eyebrow">SELECTED REPAIR <span id="repairSelectedId"></span></div>
+      <div class="repair-detail-eyebrow">REPAIR DETAILS <span id="repairSelectedId"></span></div>
       <h3 id="repairSelectedTitle">Select an issue</h3>
       <p id="repairSelectedReason"></p>
       <div id="repairSelectedMetrics" class="repair-metrics"></div>
       <div class="repair-detail-actions">
-        <button id="repairApplyDrawer" type="button">Apply repair</button>
+        <button id="repairApplyDrawer" type="button">Apply selected</button>
         <button id="repairSkip" type="button">Dismiss suggestion</button>
       </div>
     </section>

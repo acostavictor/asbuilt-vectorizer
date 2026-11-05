@@ -4,6 +4,7 @@ import {analyzeRepairs,applyRepairs,repairStats} from "./repair.js";
 export function setupRepairUI({getSheet,viewport,status,redraw,showOverlay,onGeometryChanged,refreshStats}){
   const $=id=>document.getElementById(id),drawer=$("repairDrawer");
   let active=false,selectedId=null;
+  const selectedIds=new Set();
   const results=sheet=>sheet?.repairSession||null;
   const session=sheet=>{
     if(!sheet.repairSession)sheet.repairSession={
@@ -27,17 +28,20 @@ export function setupRepairUI({getSheet,viewport,status,redraw,showOverlay,onGeo
     const sheet=getSheet();
     return available(sheet).find(p=>p.id===selectedId)||null;
   };
+  const selectedProposals=()=>available(getSheet()).filter(p=>selectedIds.has(p.id));
   function render(){
     const sheet=getSheet(),ready=sheet?.status==="done"&&!sheet?.repairBusy;
-    const data=results(sheet),issues=available(sheet),selected=chosen();
+    const data=results(sheet),issues=available(sheet),selected=chosen(),selection=selectedProposals();
     const counts={duplicate:0,join:0,corner:0,safe:0};
     for(const p of issues){counts[p.type]++;if(p.safe)counts.safe++;}
     $("repairScan").disabled=!ready;
-    $("repairApply").disabled=!ready||!selected;
+    $("repairApply").disabled=!ready||!selection.length;
+    $("repairApply").textContent="Apply selected"+(selection.length?" ("+selection.length+")":"");
     $("repairApplySafe").disabled=!ready||!counts.safe;
     $("repairUndo").disabled=!ready||!data?.undo?.length;
     $("repairRedo").disabled=!ready||!data?.redo?.length;
-    $("repairApplyDrawer").disabled=!ready||!selected;
+    $("repairApplyDrawer").disabled=!ready||!selection.length;
+    $("repairApplyDrawer").textContent="Apply selected"+(selection.length?" ("+selection.length+")":"");
     $("repairSkip").disabled=!ready||!selected;
     $("repairStatus").textContent=!ready?"Convert a sheet first":
       !data?.scan?"Run Scan geometry":
@@ -63,6 +67,15 @@ export function setupRepairUI({getSheet,viewport,status,redraw,showOverlay,onGeo
       const filter=$("repairFilter").value;
       const filtered=issues.filter(p=>filter==="all"||filter===p.type||
         filter==="safe"&&p.safe||filter==="review"&&!p.safe);
+      const toolbar=document.createElement("div");toolbar.className="repair-selection-tools";
+      const count=document.createElement("span");count.textContent=selection.length+" selected";
+      count.setAttribute("aria-live","polite");toolbar.append(count);
+      const all=document.createElement("button");all.type="button";all.textContent="Select visible";
+      all.disabled=!filtered.length;
+      all.addEventListener("click",()=>{filtered.forEach(p=>selectedIds.add(p.id));if(!chosen())selectedId=filtered[0]?.id||null;render();redraw();});
+      const clear=document.createElement("button");clear.type="button";clear.textContent="Clear selection";
+      clear.disabled=!selection.length;clear.addEventListener("click",()=>{selectedIds.clear();render();redraw();});
+      toolbar.append(all,clear);list.append(toolbar);
       if(!filtered.length){
         const p=document.createElement("p");p.className="repair-empty";
         p.textContent="No outstanding suggestions in this category. This does not guarantee the drawing is error-free.";
@@ -71,7 +84,15 @@ export function setupRepairUI({getSheet,viewport,status,redraw,showOverlay,onGeo
       const labels={duplicate:"Remove overlapping line",join:"Join disconnected lines",
         corner:"Repair corner intersection"};
       for(let i=0;i<filtered.length;i++){
-        const p=filtered[i],btn=document.createElement("button");
+        const p=filtered[i],row=document.createElement("div"),btn=document.createElement("button");
+        row.className="repair-choice"+(selectedIds.has(p.id)?" selected":"");
+        const checkbox=document.createElement("input");checkbox.type="checkbox";
+        checkbox.checked=selectedIds.has(p.id);
+        checkbox.setAttribute("aria-label","Select "+labels[p.type]+" "+p.id);
+        checkbox.addEventListener("change",()=>{
+          if(checkbox.checked){selectedIds.add(p.id);selectedId=p.id;}else selectedIds.delete(p.id);
+          render();redraw();
+        });
         btn.type="button";btn.className="repair-row"+(p.id===selectedId?" active":"");
         btn.setAttribute("aria-pressed",String(p.id===selectedId));
         const no=document.createElement("span");no.className="repair-index";no.textContent=String(i+1).padStart(2,"0");
@@ -83,13 +104,13 @@ export function setupRepairUI({getSheet,viewport,status,redraw,showOverlay,onGeo
         risk.textContent=p.safe?"LOW-RISK":"REVIEW";
         btn.append(no,main,risk);
         btn.addEventListener("click",()=>{
-          selectedId=p.id;showOverlay();active=true;drawer.hidden=false;
+          selectedId=p.id;selectedIds.add(p.id);showOverlay();active=true;drawer.hidden=false;
           const scaleX=$("imageCanvas").width/sheet.width;
           const scaleY=$("imageCanvas").height/sheet.height;
           viewport.centerOn(p.anchor[0]*scaleX,p.anchor[1]*scaleY);
           render();redraw();
         });
-        list.append(btn);
+        row.append(checkbox,btn);list.append(row);
       }
     }
     const detail=$("repairDetail");
@@ -111,6 +132,7 @@ export function setupRepairUI({getSheet,viewport,status,redraw,showOverlay,onGeo
   function rescan(sheet=getSheet()){
     if(!sheet||sheet.status!=="done")return;
     const s=session(sheet),tol=verifiedTolerance();
+    selectedIds.clear();selectedId=null;
     s.scan=analyzeRepairs(sheet.paths,{tolerance:tol,duplicateTolerance:Math.min(.85,tol*.35)});
     const ids=new Set(s.scan.proposals.map(x=>x.id));
     s.dismissed=new Set([...s.dismissed].filter(id=>ids.has(id)));
@@ -144,10 +166,11 @@ export function setupRepairUI({getSheet,viewport,status,redraw,showOverlay,onGeo
     s.redo=[];s.dismissed.clear();selectedId=null;
     rescan(sheet);onGeometryChanged?.(sheet);refreshStats?.();
     const stats=repairStats(result.applied);
+    const skipped=proposals.length-result.applied.length;
     status("Applied "+stats.total+" repair(s): "+stats.duplicate+" duplicates, "+stats.join+
-      " joins, "+stats.corner+" intersections. Undo is available. Recheck dimensions in CAD.");
+      " joins, "+stats.corner+" intersections. "+(skipped?skipped+" overlapping or stale suggestion(s) skipped; review the refreshed list. ":"")+"Undo is available. Recheck dimensions in CAD.");
   }
-  function applySelected(){const p=chosen();if(p)apply([p]);}
+  function applySelected(){const proposals=selectedProposals();if(proposals.length)apply(proposals);}
   function applySafe(){
     const sheet=getSheet();if(!sheet||sheet.status!=="done")return;
     const safe=available(sheet).filter(p=>p.safe);
@@ -172,15 +195,16 @@ export function setupRepairUI({getSheet,viewport,status,redraw,showOverlay,onGeo
   }
   function ignore(){
     const sheet=getSheet(),p=chosen();if(!sheet||!p)return;
-    session(sheet).dismissed.add(p.id);selectedId=null;render();redraw();
+    session(sheet).dismissed.add(p.id);selectedIds.delete(p.id);selectedId=selectedProposals()[0]?.id||null;render();redraw();
     status("Suggestion dismissed for this scan. It did not change the exported CAD.");
   }
   function resetSheet(sheet){
     if(!sheet)return;
-    delete sheet.repairSession;selectedId=null;
+    delete sheet.repairSession;
+    if(getSheet()===sheet){selectedId=null;selectedIds.clear();}
     if(getSheet()===sheet){render();redraw();}
   }
-  function onSheetChanged(){selectedId=null;render();}
+  function onSheetChanged(){selectedId=null;selectedIds.clear();render();}
   function report(sheet){
     const s=results(sheet),open=available(sheet);
     const counts=s?.scan?.stats?.counts||null;
@@ -202,13 +226,13 @@ export function setupRepairUI({getSheet,viewport,status,redraw,showOverlay,onGeo
     const proposals=available(sheet);if(!proposals.length)return;
     ctx.save();ctx.lineWidth=1.5;
     for(const p of proposals.slice(0,300)){
-      if(p.id===selectedId)continue;
+      if(selectedIds.has(p.id)||p.id===selectedId)continue;
       const [x,y]=p.anchor;
       ctx.strokeStyle=p.safe?"#27bca8":"#edac4b";
       ctx.beginPath();ctx.arc(x*sx,y*sy,3,0,Math.PI*2);ctx.stroke();
     }
     const p=chosen();
-    if(p){
+    for(const p of proposals.filter(item=>selectedIds.has(item.id)||item.id===selectedId)){
       ctx.lineWidth=3;ctx.lineCap="round";
       ctx.strokeStyle="#ffbd67";
       for(const path of p.sourcePaths){
@@ -252,10 +276,10 @@ export function setupRepairUI({getSheet,viewport,status,redraw,showOverlay,onGeo
   }));
   render();
   function reset(){
-    active=false;selectedId=null;drawer.hidden=true;
+    active=false;selectedId=null;selectedIds.clear();drawer.hidden=true;
     $("repairStatus").textContent="Convert a sheet to inspect linework.";
     render();
   }
   return {render,onSheetChanged,resetSheet,reset,report,drawOverlay,
-    get active(){return active;},get selected(){return chosen();}};
+    get active(){return active;},get selected(){return chosen();},get selection(){return selectedProposals();}};
 }
