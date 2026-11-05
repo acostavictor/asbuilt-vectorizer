@@ -187,7 +187,9 @@ export function summarizeDimensionQA(dimensions,options={}){
   return counts;
 }
 function csvCell(value){
-  const s=String(value==null?"":value);
+  let s=String(value==null?"":value);
+  // Prevent spreadsheet formula execution when the CSV is opened in Excel.
+  if(/^[\s]*[=+\-@]/.test(s))s="\u0027"+s;
   return '"'+s.replace(/"/g,'""')+'"';
 }
 export function dimensionCsv(dimensions,{sheetName="",...options}={}){
