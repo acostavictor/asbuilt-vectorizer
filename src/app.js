@@ -17,7 +17,8 @@ const viewport=createDrawingViewport({
   crosshair:$("crosshair"),hint:$("viewHint"),onPick:handleViewportPick,onCancel:cancelSelection
 });
 const dimensionUI=setupDimensionUI({
-  getSheet:()=>state.sheets[state.selected],viewport,status,redraw:drawVectors,download
+  getSheet:()=>state.sheets[state.selected],viewport,status,redraw:drawVectors,download,
+  showOverlay:()=>setView("overlay")
 });
 const presets={
   generic:["VEC-POLYLINES","ANNO-TEXT"],civil:["C-UNCLASSIFIED","C-ANNO"],
