@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 256 256">
+  <title>AsBuilt Vectorizer logo mark: scan to vector</title>
+  <desc>A bold V drawn as a vector path with anchor-point nodes. Three small raster pixels in the top-left corner dissolve into the clean path: a scanned as-built becoming usable vector linework.</desc>
+  <!-- Tile -->
+  <rect x="8" y="8" width="240" height="240" rx="52" fill="#0B101E"/>
+  <!-- Raster pixels dissolving into the path -->
+  <rect x="36" y="36" width="14" height="14" rx="3" fill="#64748B"/>
+  <rect x="58" y="36" width="14" height="14" rx="3" fill="#475569"/>
+  <rect x="36" y="58" width="14" height="14" rx="3" fill="#475569"/>
+  <!-- Vector path: the V -->
+  <path d="M72 80 L128 184 L184 80" fill="none" stroke="#38BDF8" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Anchor-point nodes -->
+  <circle cx="72" cy="80" r="14" fill="#FFFFFF" stroke="#38BDF8" stroke-width="5"/>
+  <circle cx="128" cy="184" r="14" fill="#FFFFFF" stroke="#38BDF8" stroke-width="5"/>
+  <circle cx="184" cy="80" r="14" fill="#FFFFFF" stroke="#38BDF8" stroke-width="5"/>
+</svg>
