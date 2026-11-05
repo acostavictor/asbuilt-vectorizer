@@ -22,6 +22,7 @@ export function createDrawingViewport({wrapper,stage,readout,crosshair,hint,onPi
     wrapper.classList.toggle("mode-calibrate",state.tool==="calibrate");
     wrapper.classList.toggle("mode-crop",state.tool==="crop");
     wrapper.classList.toggle("mode-hatch",state.tool==="hatch");
+    wrapper.classList.toggle("mode-dimension",state.tool==="dimension");
     const pan=document.getElementById("toolPan");
     if(pan){pan.classList.toggle("active",state.tool==="pan");pan.setAttribute("aria-pressed",String(state.tool==="pan"));}
   }
@@ -48,19 +49,26 @@ export function createDrawingViewport({wrapper,stage,readout,crosshair,hint,onPi
     Object.assign(state,zoomAround(state,target,anchorX,anchorY));
     state.mode="custom";render();
   }
+  function centerOn(x,y){
+    if(!state.width||!state.height||!Number.isFinite(x)||!Number.isFinite(y))return;
+    state.tx=wrapper.clientWidth/2-x*state.scale;
+    state.ty=wrapper.clientHeight/2-y*state.scale;
+    state.mode="custom";render();
+  }
   function actual(){
     if(!state.width)return;
     Object.assign(state,zoomAround(state,1,wrapper.clientWidth/2,wrapper.clientHeight/2));
     state.mode="custom";render();
   }
   function setTool(tool){
-    if(!["pan","calibrate","crop","hatch"].includes(tool))throw Error("Unknown drawing tool");
+    if(!["pan","calibrate","crop","hatch","dimension"].includes(tool))throw Error("Unknown drawing tool");
     state.tool=tool;
     state.drag=null;wrapper.classList.remove("is-panning");
     crosshair.hidden=tool==="pan";
     setHint(tool==="calibrate"?"Calibration: zoom to the endpoints, then click point 1 and point 2. Press Esc to cancel.":
       tool==="crop"?"Drawing area: click two opposite corners. Scroll to zoom; hold Space to pan.":
       tool==="hatch"?"Hatch boundary: click vertices on the drawing. Press Finish hatch after at least three points; Space + drag pans.":
+      tool==="dimension"?"Dimension QA: click two measured endpoints; zoom and Space + drag as needed. Esc cancels.":
       "Pan: drag to move the drawing. Scroll to zoom. Use Review & scale to pick precise points.");
     render();
   }
@@ -140,7 +148,7 @@ export function createDrawingViewport({wrapper,stage,readout,crosshair,hint,onPi
   }):null;
   resize?.observe(wrapper);
   render();
-  return {fit,zoom,actual,setDrawing,setTool,setHint,readState:()=>({...state}),
+  return {fit,zoom,actual,centerOn,setDrawing,setTool,setHint,readState:()=>({...state}),
     reset(){state.width=0;state.height=0;state.tool="pan";state.mode="fit";state.drag=null;render();},
     destroy(){resize?.disconnect();wrapper.removeEventListener("wheel",wheel);window.removeEventListener("keydown",keydown);window.removeEventListener("keyup",keyup);}};
 }
