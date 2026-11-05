@@ -7,6 +7,7 @@
   <meta name="description" content="Private browser-local conversion of scanned engineering as-builts into editable DXF drawings.">
   <link rel="icon" type="image/svg+xml" href="./assets/logo-mark.svg">
   <title>VecBuilt | Studio</title>
+  <link rel="stylesheet" href="./src/repair.css">
   <link rel="stylesheet" href="./src/ui.css">
   <link rel="stylesheet" href="./studio-preview/studio.css">
   <link rel="stylesheet" href="./src/dimensions.css">
@@ -16,7 +17,7 @@
   <div class="identity"><img class="logo-img" src="./assets/logo-mark-header.svg" alt="" aria-hidden="true">
     <div><span class="brand-title">VecBuilt</span><span class="brand-sub">PDF to precision CAD</span></div></div>
   <div class="app-top-status"><span class="lock"></span><p id="jobStatus" role="status" aria-live="polite">Open a PDF or scanned drawing to begin.</p></div>
-  <div class="header-actions"><span class="header-pill">Local browser processing</span><button type="button" class="studio-quick-export" id="studioExport" disabled aria-label="Download selected DXF"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v13m-5-5 5 5 5-5M4 17v4h16v-4"/></svg> Export DXF</button><a class="app-help-link" href="./help/" aria-label="Open VecBuilt Help Center">? Help</a><a class="app-help-link app-classic-link" href="./classic/" title="Open classic interface">Classic</a><span class="header-version">Studio v0.7</span></div>
+  <div class="header-actions"><span class="header-pill">Local browser processing</span><button type="button" class="studio-quick-export" id="studioExport" disabled aria-label="Download selected DXF"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v13m-5-5 5 5 5-5M4 17v4h16v-4"/></svg> Export DXF</button><a class="app-help-link" href="./help/" aria-label="Open VecBuilt Help Center">? Help</a><a class="app-help-link app-classic-link" href="./classic/" title="Open classic interface">Classic</a><span class="header-version">Studio v0.8</span></div>
 </header>
 
 <nav class="ribbon-shell" aria-label="Drawing tools">
@@ -25,6 +26,7 @@
     <button class="ribbon-tab" id="tab-convert" role="tab" aria-controls="panel-convert" aria-selected="false" data-ribbon="convert">Convert</button>
     <button class="ribbon-tab" id="tab-review" role="tab" aria-controls="panel-review" aria-selected="false" data-ribbon="review">Review &amp; scale</button>
     <button class="ribbon-tab" id="tab-dimensions" role="tab" aria-controls="panel-dimensions" aria-selected="false" data-ribbon="dimensions">Dimensions</button>
+    <button class="ribbon-tab" id="tab-repair" role="tab" aria-controls="panel-repair" aria-selected="false" data-ribbon="repair">Repair</button>
     <button class="ribbon-tab" id="tab-layers" role="tab" aria-controls="panel-layers" aria-selected="false" data-ribbon="layers">Layers</button>
     <button class="ribbon-tab" id="tab-export" role="tab" aria-controls="panel-export" aria-selected="false" data-ribbon="export">Export</button>
     <div class="ribbon-end"><button id="toggleInspector" class="ribbon-button" type="button" aria-pressed="true" title="Show or hide the drawing properties">Hide properties</button></div>
@@ -128,6 +130,22 @@
       <div class="ribbon-group"><div class="ribbon-controls">
         <button id="dimDownloadCSV" class="ribbon-button" type="button" disabled>Download QA CSV</button>
       </div><div class="ribbon-group-label">Audit report</div></div>
+    </section>
+    <section class="ribbon-pane" id="panel-repair" role="tabpanel" aria-labelledby="tab-repair">
+      <div class="ribbon-group"><div class="ribbon-controls">
+        <button id="repairScan" class="ribbon-button primary" type="button">Scan geometry</button>
+        <button id="repairShow" class="ribbon-button" type="button">Review issues</button>
+      </div><div class="ribbon-group-label">Topology review</div></div>
+      <div class="ribbon-group"><div class="ribbon-controls">
+        <label class="ribbon-field">Maximum repair gap (px)<input id="repairTolerance" type="number" min="0.2" max="25" step="0.5" value="3"></label>
+        <button id="repairApplySafe" class="ribbon-button" type="button" disabled title="Only exact duplicates and extremely small, aligned joins">Apply low-risk</button>
+      </div><div class="ribbon-group-label">Conservative cleanup</div></div>
+      <div class="ribbon-group"><div class="ribbon-controls">
+        <button id="repairApply" class="ribbon-button" type="button" disabled>Apply selected</button>
+        <button id="repairUndo" class="ribbon-button" type="button" disabled>Undo</button>
+        <button id="repairRedo" class="ribbon-button" type="button" disabled>Redo</button>
+      </div><div class="ribbon-group-label">Edits</div></div>
+      <div class="ribbon-group"><div class="ribbon-controls"><span id="repairStatus" class="repair-ribbon-status" role="status">Convert a sheet to inspect linework.</span></div></div>
     </section>
     <section class="ribbon-pane" id="panel-layers" role="tabpanel" aria-labelledby="tab-layers">
       <div class="ribbon-group"><div class="ribbon-controls">
@@ -241,6 +259,30 @@
       <p id="dimDetailMessage" class="dimension-detail-footnote">Confirming acknowledges human review; it does not override a mismatch.</p>
     </section>
     <div class="dimension-drawer-bottom">Compare printed measurements against calibrated geometry. Missing or mismatched dimensions must be reviewed in CAD.</div>
+  </aside>
+  <aside class="repair-drawer" id="repairDrawer" aria-label="CAD geometry repair review" hidden>
+    <div class="repair-drawer-header">
+      <div><span class="repair-eyebrow">CAD QUALITY CONTROL</span><h2>Geometry repair</h2></div>
+      <button id="repairClose" class="repair-icon-button" type="button" aria-label="Close geometry repair">×</button>
+    </div>
+    <div id="repairSummary" class="repair-summary" role="status">Convert a drawing, then scan its geometry.</div>
+    <p class="repair-help">All changes require review. <strong>Apply low-risk</strong> only accepts nearly identical duplicate lines and very short, highly aligned gaps.</p>
+    <div class="repair-filters">
+      <label for="repairFilter">Show</label>
+      <select id="repairFilter"><option value="all">All issues</option><option value="duplicate">Duplicates</option><option value="join">Line gaps</option><option value="corner">Intersections</option><option value="safe">Low-risk only</option><option value="review">Manual review</option></select>
+    </div>
+    <div class="repair-list" id="repairList" aria-label="Proposed geometry corrections"></div>
+    <section id="repairDetail" class="repair-detail" hidden>
+      <div class="repair-detail-eyebrow">SELECTED REPAIR <span id="repairSelectedId"></span></div>
+      <h3 id="repairSelectedTitle">Select an issue</h3>
+      <p id="repairSelectedReason"></p>
+      <div id="repairSelectedMetrics" class="repair-metrics"></div>
+      <div class="repair-detail-actions">
+        <button id="repairApplyDrawer" type="button">Apply repair</button>
+        <button id="repairSkip" type="button">Dismiss suggestion</button>
+      </div>
+    </section>
+    <div class="repair-drawer-footer">Uncertain joins and intersections are never applied by the low-risk batch action. Use Undo/Redo to compare results.</div>
   </aside>
 </main>
 <footer class="bottom-status"><span id="coordinateStatus">Page-relative coordinates · not calibrated</span><span class="local">◈ Drawing data stays in this browser</span><span>DXF output · DWG unavailable</span></footer>
