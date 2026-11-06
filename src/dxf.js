@@ -24,7 +24,7 @@ export function annotationHeight(units="unitless",heightInches=.1,scale=1){
  if(!Number.isFinite(height)||height<=0)throw Error("Invalid annotation height");
  return height;
 }
-export function buildDxf({width,height,paths=[],circles=[],hatches=[],hatchLayer="HATCH-REVIEW",styledPaths=[],lineTypeOverride="auto",
+export function buildDxf({width,height,paths=[],circles=[],arcs=[],hatches=[],hatchLayer="HATCH-REVIEW",styledPaths=[],lineTypeOverride="auto",
   texts=[],textHeightInches=.1,annotationScale=1,unitsPerPixel=1,geometryLayer="VEC-POLYLINES",
   textLayer="ANNO-TEXT",units="unitless",originX=0,originY=0}){
   if(!Number.isFinite(unitsPerPixel)||unitsPerPixel<=0)throw Error("Invalid calibration scale");
@@ -32,10 +32,11 @@ export function buildDxf({width,height,paths=[],circles=[],hatches=[],hatchLayer
     throw Error("Invalid sheet dimensions");
   if(!Number.isFinite(originX)||!Number.isFinite(originY))throw Error("Invalid drawing origin");
   const point=p=>Array.isArray(p)&&p.length>=2&&p.slice(0,2).every(Number.isFinite);
-  for(const list of [paths,styledPaths,circles,hatches,texts])if(!Array.isArray(list))throw Error("Invalid export collection");
+  for(const list of [paths,styledPaths,circles,arcs,hatches,texts])if(!Array.isArray(list))throw Error("Invalid export collection");
   for(const path of [...paths,...styledPaths.map(p=>p?.points)])
     if(!Array.isArray(path)||path.length<2||!path.every(point))throw Error("Invalid path coordinates");
   for(const c of circles)if(!point(c?.center)||!Number.isFinite(c.radius)||c.radius<=0)throw Error("Invalid circle");
+  for(const a of arcs)if(!point(a?.center)||!Number.isFinite(a.radius)||a.radius<=0||!Number.isFinite(a.startAngle)||!Number.isFinite(a.endAngle))throw Error("Invalid arc");
   for(const h of hatches){
     if(!Array.isArray(h?.boundary)||h.boundary.length<3||!h.boundary.every(point))throw Error("Invalid hatch boundary");
     const patterns=h.patterns?.length?h.patterns:[{angleDegrees:h.angleDegrees,spacingPx:h.spacingPx,origin:h.origin}];
@@ -84,14 +85,15 @@ export function buildDxf({width,height,paths=[],circles=[],hatches=[],hatchLayer
   const counts=Object.fromEntries(LINE_TYPES.map(type=>[type,0])),geometryCount={solid:0,styled:0};let textCount=0;
   function addPath(path,linetype=null){
     if(!Array.isArray(path)||path.length<2)return false;
-    const points=path.map(map);
+    const closed=path.length>3&&Math.hypot(path[0][0]-path.at(-1)[0],path[0][1]-path.at(-1)[1])<1e-7;
+    const points=(closed?path.slice(0,-1):path).map(map);
     if(points.some(p=>!p.every(Number.isFinite)))throw Error("Path exceeds finite drawing coordinates");
     const suffix=linetype?pair(6,linetype):"";
     if(points.length===2){
       d+=pair(0,"LINE")+pair(100,"AcDbEntity")+pair(8,geometry)+suffix+pair(100,"AcDbLine")+coords(points[0][0],points[0][1])+
         pair(11,number(points[1][0]))+pair(21,number(points[1][1]));
     }else{
-      d+=pair(0,"LWPOLYLINE")+pair(100,"AcDbEntity")+pair(8,geometry)+suffix+pair(100,"AcDbPolyline")+pair(90,points.length)+pair(70,0);
+      d+=pair(0,"LWPOLYLINE")+pair(100,"AcDbEntity")+pair(8,geometry)+suffix+pair(100,"AcDbPolyline")+pair(90,points.length)+pair(70,closed?1:0);
       for(const point of points)d+=coords(point[0],point[1]);
     }
     return true;
@@ -115,6 +117,12 @@ export function buildDxf({width,height,paths=[],circles=[],hatches=[],hatchLayer
       pair(100,"AcDbCircle")+coords(center[0],center[1])+
       pair(30,0)+pair(40,number(radius));
     circleCount++;
+  }
+  for(const arc of arcs){
+    const center=map(arc.center);
+    d+=pair(0,"ARC")+pair(100,"AcDbEntity")+pair(8,geometry)+pair(100,"AcDbCircle")+
+      coords(...center)+pair(30,0)+pair(40,number(arc.radius*unitsPerPixel))+pair(100,"AcDbArc")+
+      pair(50,number(arc.startAngle))+pair(51,number(arc.endAngle));
   }
   // Native non-associative HATCH supports SOLID, diagonal and dual-angle
   // patterns. The scanned pattern is measured in source pixels and expressed
@@ -165,7 +173,7 @@ export function buildDxf({width,height,paths=[],circles=[],hatches=[],hatchLayer
   d+=pair(0,"ENDSEC")+pair(0,"EOF");
   d=completeDrawing(d,insunits,{textHeight});
   const integrity=validateDxf(d);
-  return {content:d,integrity,textStyle:"SIMPLEX",textHeight,textHeightInches,annotationScale,geometryCount:geometryCount.solid+geometryCount.styled+circleCount,textCount,circleCount,
+  return {content:d,integrity,textStyle:"SIMPLEX",textHeight,textHeightInches,annotationScale,geometryCount:geometryCount.solid+geometryCount.styled+circleCount+arcs.length,textCount,circleCount,arcCount:arcs.length,
     styledCount:geometryCount.styled,lineTypes:Object.keys(styles),lineTypeCounts:counts,
     linePatterns,hatchCount,solidHatchCount,crossHatchCount,hatchLayer:hatched,layers:names,insunits};
 }
@@ -177,7 +185,7 @@ export function validateDxf(content){
   validateDrawingStructure(content);
   if(lines.length%2)throw Error("DXF has an incomplete group pair");
   let section=false,entities=false,count=0,record=[];
-  const subclasses={LINE:"AcDbLine",LWPOLYLINE:"AcDbPolyline",TEXT:"AcDbText",CIRCLE:"AcDbCircle",HATCH:"AcDbHatch"};
+  const subclasses={LINE:"AcDbLine",LWPOLYLINE:"AcDbPolyline",TEXT:"AcDbText",CIRCLE:"AcDbCircle",ARC:"AcDbArc",HATCH:"AcDbHatch"};
   const check=()=>{
     if(!record.length)return;
     const type=record[0][1],required=subclasses[type];

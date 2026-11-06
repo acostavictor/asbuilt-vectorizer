@@ -1,3 +1,5 @@
+import {extractPdfGeometry} from "./pdf-geometry.js";
+import {reconstructRectangles} from "./rectangles.js";
 import {askSheetPlotScales} from "./sheet-scale.js";
 import {buildDxf,filenameBase,uniqueDxfName,annotationHeight} from "./dxf.js";
 import {rotatedDimensionOcr,normalizeDimensionOcr} from "./ocr-dimensions.js";
@@ -80,7 +82,7 @@ async function ensurePdf(){
   return state.pdfjs;
 }
 function blankSheet(file,name,type,extra={}){
-  return {file,name,type,status:"pending",paths:[],sourcePaths:[],circles:[],circleStats:null,contourStats:null,
+  return {file,name,type,status:"pending",paths:[],sourcePaths:[],arcs:[],circles:[],circleStats:null,contourStats:null,
     manualHatchSpecs:[],manualHatchResults:[],hatches:[],hatchStats:null,straightStats:null,styledPaths:[],patternStats:null,lineTypeOverride:"auto",textHeightInches:.1,annotationScale:null,texts:[],dimensions:[],dimensionDetection:null,width:0,height:0,
     scale:1,calibrated:false,units:"unitless",roi:null,processingDpi:null,tilesProcessed:0,watermarkDetected:false,geometryLayer:presets[$("preset").value][0],
     textLayer:presets[$("preset").value][1],hatchLayer:"HATCH-REVIEW",warning:"",...extra};
@@ -233,7 +235,12 @@ async function makeTileSource(sheet,dpi){
         nativeTexts.push({value:item.str.trim(),x,y,height:h,bbox,native:true});
       }
     }catch(e){console.warn("PDF text/watermark inspection failed:",e);}
-    return {width,height,nativeTexts,watermarkDetected,
+    let nativeGeometry=null;
+    if($("preferPdfVectors").checked){
+      try{const visibility=await sheet.document.getOptionalContentConfig({intent:"display"});const geometry=extractPdfGeometry(await page.getOperatorList(),state.pdfjs.OPS,viewport,{isVisible:props=>visibility.isVisible(props)});if(geometry.usable)nativeGeometry=geometry;}
+      catch(e){console.warn("Native PDF extraction unavailable; using raster tracing",e);}
+    }
+    return {width,height,nativeTexts,watermarkDetected,nativeGeometry,
       async render(tile){
         const canvas=document.createElement("canvas");
         canvas.width=tile.width;canvas.height=tile.height;
@@ -312,7 +319,7 @@ async function convertSheet(i){
         minLength:$("detectLinetypes").checked?Math.min(2,Math.max(4,Number($("minLength").value)||17)):Math.max(4,Number($("minLength").value)||17),
         epsilon:Math.max(.2,Number($("epsilon").value)||1.6),maxPaths:12000,
         minComponent:Math.max(0,Number($("speckles").value)||0),smoothCurves:$("smoothCurves").checked,masks};
-      const result=await trace(canvas,options);
+      const result=source.nativeGeometry?{paths:[],thinningConverged:true}:await trace(canvas,options);
       if(result.truncated)truncatedTiles++;
       if(!result.thinningConverged)nonConvergedTiles++;
       for(const path of result.paths){
@@ -324,17 +331,35 @@ async function convertSheet(i){
       // Yield so the UI can repaint and browser controls remain responsive.
       await new Promise(resolve=>setTimeout(resolve,0));
     }
+    let nativeCircles=[];
+    if(source.nativeGeometry){
+      const masked=p=>texts.some(t=>(t.native||exportOcr||removeText)&&t.bbox&&p.every(([x,y])=>x>=t.bbox.x0-2&&x<=t.bbox.x1+2&&y>=t.bbox.y0-2&&y<=t.bbox.y1+2));
+      const inArea=p=>p.every(([x,y])=>x>=area.x0&&x<=area.x1&&y>=area.y0&&y<=area.y1);
+      for(const path of source.nativeGeometry.paths)if(!masked(path))paths.push(...clipToTileAndRoi(path,{x0:area.x0,y0:area.y0,x1:area.x1,y1:area.y1},area));
+      const keepShape=(shape,isCircle)=>{
+        const start=isCircle?0:shape.startAngle;let end=isCircle?360:shape.endAngle;if(end<=start)end+=360;
+        const points=Array.from({length:129},(_,k)=>{const angle=(start+(end-start)*k/128)*Math.PI/180;return [shape.center[0]+shape.radius*Math.cos(angle),shape.center[1]-shape.radius*Math.sin(angle)];});
+        if(masked(points))return false;
+        if(!inArea(points)){paths.push(...clipToTileAndRoi(points,{x0:area.x0,y0:area.y0,x1:area.x1,y1:area.y1},area));return false;}
+        return true;
+      };
+      s.arcs=source.nativeGeometry.arcs.filter(a=>keepShape(a,false));
+      nativeCircles=source.nativeGeometry.circles.filter(c=>keepShape(c,true));
+      s.nativeGeometryStats=source.nativeGeometry.stats;
+    }else{s.arcs=[];s.nativeGeometryStats=null;}
     // Circle fitting takes priority: a complete round feature must be a CAD
     // CIRCLE, not a straightened collection of LINE entities.
     status("Fitting precise circles from scanned geometry...");
-    const circular=recognizeCircles(paths,{enabled:$("recognizeCircles").checked});
+    const circular=source.nativeGeometry?{paths,circles:nativeCircles,stats:{completeCircles:nativeCircles.length,fragmentedCircles:0,...source.nativeGeometry.stats}}:recognizeCircles(paths,{enabled:$("recognizeCircles").checked});
     status("Straightening reliable linework...");
-    const corrected=$("straightenLines").checked?straightenPaths(circular.paths,{
+    const corrected=!source.nativeGeometry&&$("straightenLines").checked?straightenPaths(circular.paths,{
       maxDeviation:2.5,maxRelativeDeviation:.035,orthogonal:$("snapOrthogonal").checked
     }):{paths:circular.paths,stats:{straightened:0,preserved:circular.paths.length}};
     const repaired=repairNearClosedContours(corrected.paths,{
       enabled:$("repairContours").checked,maxGap:5
     });
+    const boxes=$("recognizeRectangles").checked?reconstructRectangles(repaired.paths,{tolerance:source.nativeGeometry?.02:1.2}):{paths:repaired.paths,stats:null};
+    repaired.paths=boxes.paths;s.rectangleStats=boxes.stats;
     const detectedTexts=dedupeText(texts);
     s.detectedTexts=detectedTexts;s.dimensionSourcePaths=removeDimensions?repaired.paths:null;
     const dimensionCandidates=detectPrintedDimensions(detectedTexts,repaired.paths);
@@ -359,6 +384,7 @@ async function convertSheet(i){
       (nonConvergedTiles?nonConvergedTiles+" tiles did not fully thin. ":"")+
       (source.watermarkDetected?"PDF-XChange overlay detected"+($("removeWatermark").checked?" and filtered. ":". "):"")+
       (!s.calibrated?"Output is not calibrated. ":"")+
+      (source.nativeGeometry?"Preserved native PDF geometry; small embedded images are not vectorized. ":"")+
       (detectText?"Text/dimension detection may miss rotated, faint or merged labels. Review the vector preview. ":"")+
       (removeDimensions?"Removed "+excluded.stats.matched+" matched dimensions; "+excluded.stats.unmatched+" unmatched notes retained for review. ":"");
   }catch(e){s.status="error";s.warning=e?.message||String(e);console.error("Conversion error",e);}
@@ -424,6 +450,7 @@ async function selectSheet(i,force=false){
 function updateStats(){
   const s=state.sheets[state.selected];if(!s)return;
   $("previewStats").textContent=(s.paths.length||0)+" vectors · "+(s.texts.length||0)+" text entities · "+s.status+
+    (s.nativeGeometryStats?" · native PDF geometry":"")+
     (s.dimensions?.length?" · "+s.dimensions.length+" dimension candidates":"")+
     (s.repairSession?.accepted?.length?" · "+s.repairSession.accepted.length+" CAD repairs":"")+
     (s.tilesProcessed?" · "+s.tilesProcessed+" tiles":"")+
@@ -542,6 +569,9 @@ function drawVectors(){
     ctx.stroke();
   }
   ctx.setLineDash([]);
+  for(const arc of sheet.arcs||[]){
+    ctx.beginPath();ctx.arc(arc.center[0],arc.center[1],arc.radius,-arc.startAngle*Math.PI/180,-arc.endAngle*Math.PI/180,true);ctx.stroke();
+  }
   ctx.fillStyle=vectorOnly?"#ffd38b":"#ca870e";
   ctx.strokeStyle=vectorOnly?"#e8bb5e":"#d68a21";
   for(const item of sheet.texts){
@@ -605,7 +635,7 @@ function setView(view){
 function makeDxf(s){
   if(s.status!=="done")throw Error("Sheet must be converted first");
   if(s.annotationScale===null)throw Error("Choose this sheet’s plot scale under Layers → Set sheet scale before exporting 0.10-inch printed text.");
-  return buildDxf({width:s.width,height:s.height,paths:s.paths,circles:s.circles||[],
+  return buildDxf({width:s.width,height:s.height,paths:s.paths,circles:s.circles||[],arcs:s.arcs||[],
     hatches:s.hatches||[],hatchLayer:s.hatchLayer||"HATCH-REVIEW",styledPaths:s.styledPaths||[],
     lineTypeOverride:s.lineTypeOverride||"auto",texts:s.texts,
     textHeightInches:s.textHeightInches??.1,annotationScale:s.annotationScale??1,
@@ -647,7 +677,7 @@ async function exportZip(){
         annotationCleanup:s.annotationCleanup||null,patternRecognition:s.patternStats||null,linetypeOverride:s.lineTypeOverride,
         hatches:output.hatchCount,solidHatches:output.solidHatchCount,
         crossHatches:output.crossHatchCount,circles:output.circleCount,
-        circleRecognition:s.circleStats||null,boundaryRepair:s.contourStats||null,
+        nativeGeometry:s.nativeGeometryStats||null,rectangleRecognition:s.rectangleStats||null,arcs:output.arcCount,circleRecognition:s.circleStats||null,boundaryRepair:s.contourStats||null,
         manualHatchResults:s.manualHatchResults||[],hatchLayer:output.hatchLayer,
         hatchRecognition:s.hatchStats||null,straightening:s.straightStats||null,
         dimensions:dimensionUI.stats(s),dimensionDetection:s.dimensionDetection||null,
@@ -825,7 +855,7 @@ window.addEventListener("keydown",e=>{
 });
 function invalidateConversion(s){
   if(s.status==="done"||s.status==="error"){
-    s.status="pending";s.paths=[];s.sourcePaths=[];s.circles=[];s.circleStats=null;s.contourStats=null;
+    s.status="pending";s.arcs=[];s.paths=[];s.sourcePaths=[];s.circles=[];s.circleStats=null;s.contourStats=null;
     s.manualHatchSpecs=[];s.manualHatchResults=[];s.hatches=[];s.hatchStats=null;s.straightStats=null;
     s.styledPaths=[];s.patternStats=null;s.texts=[];s.detectedTexts=[];s.dimensionSourcePaths=null;s.dimensions=[];s.dimensionDetection=null;
     repairUI.resetSheet(s);

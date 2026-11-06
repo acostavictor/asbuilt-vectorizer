@@ -15,6 +15,9 @@ jobs:
         run: |
           node --check src/app.js
           node --check src/geometry.js
+          node --check src/pdf-geometry.js
+          node --check src/pdf-knockout.js
+          node --check src/rectangles.js
           node --check src/curve-smoothing.js
           node --check src/straightening.js
           node --check src/hatch.js

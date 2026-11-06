@@ -50,8 +50,8 @@ with tempfile.TemporaryDirectory() as directory:
     audit = doc.audit()
     assert not audit.errors, [(e.code, e.message) for e in audit.errors]
     assert not audit.fixes, [(e.code, e.message) for e in audit.fixes]
-    assert len(entities) == 11, len(entities)
-    assert {e.dxftype() for e in entities} == {'LINE','LWPOLYLINE','TEXT','CIRCLE','HATCH'}
+    assert len(entities) == 12, len(entities)
+    assert {e.dxftype() for e in entities} == {'LINE','LWPOLYLINE','TEXT','CIRCLE','ARC','HATCH'}
     assert doc.units == 2
     assert len(doc.modelspace().query('HATCH')) == 2
     assert {e.dxf.linetype for e in entities} >= {'DASHED','HIDDEN','CENTER','PHANTOM','DASHDOT'}

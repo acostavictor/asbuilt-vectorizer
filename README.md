@@ -321,3 +321,24 @@ polylines, not newly inferred spline or ARC entities.
 Reconvert sheets after changing this option. Scans with very few pixels across a
 radius can still look faceted; higher source resolution is needed to recover detail
 that is absent from the input. Smoothing cannot certify original dimensions.
+
+## Native vector PDFs and four-vertex boxes
+
+Prefer **Preserve PDF vector geometry when available** for vector-authored PDFs.
+The PDF.js 5.x packed-path reader preserves transformed line coordinates and
+closed paths, extracts supported circular Béziers into CIRCLE/ARC entities, and
+flattens other cubic curves to fine polylines. Supported rectangular clipping,
+optional-content visibility and white fill knockouts are considered. Pages with
+unsupported path structures or dominant raster images use the existing raster
+pipeline. Embedded images occupying a small part of a vector page are omitted
+with a conversion warning; this is not full PDF graphics reproduction. White
+stroke-only erasers, complex clipping/fill rules and font outlines can still need
+review. OCR export/removal remains necessary for outlined lettering.
+
+**Recognize closed rectangles (4 vertices)** uses bounded fitting on closed paths
+and can join four isolated edges. Open, branched and irregular shapes are not
+forced into rectangles. Supported boxes use four unique vertices and the DXF
+closed-polyline flag. Native paths bypass raster straightening and smoothing,
+which would degrade their source coordinates. Crop-boundary circle/arc fragments
+may remain clipped polylines. Reconvert sheets to apply these options and review
+against Original before using the DXF. Native extraction does not set calibration.

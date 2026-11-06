@@ -143,3 +143,5 @@ export function recognizeCircles(paths,{enabled=true,minRadius=6,maxDeviation=2.
   stats.sourcePathsReplaced=used.size;
   return {paths:paths.filter((_,i)=>!used.has(i)),circles,stats};
 }
+
+export {fitLeastSquares as fitCirclePoints};
